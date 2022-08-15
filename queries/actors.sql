@@ -1,0 +1,8 @@
+CREATE TABLE actors (
+    unitGUID VARBINARY PRIMARY KEY UNIQUE NOT NULL,
+    unitName VARCHAR(50) NOT NULL,
+    isPlayer BOOLEAN,
+    isPet BOOLEAN,
+    isNPC BOOLEAN,
+    isBoss BOOLEAN
+)
