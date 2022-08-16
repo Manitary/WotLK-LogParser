@@ -2,6 +2,13 @@
 
 Parse and view combat logs of World of Warcraft WotLK
 
+### 0.1.2
+New:
+* Added setup for target selection (currently inactive, will only query 'all targets'), with a button to return to global selection
+* Added a meter selection
+* Added Damage Taken meter
+* Improved source/target list handling
+
 ### 0.1.1
 New:
 * When on the global damage meter, clicking on a row will open the damage breakdown of the selected character/pet
@@ -18,9 +25,8 @@ Functionalities:
 ----
 
 Upcoming tasks:
-* Add healing log, and a widget to swap between various types of logs
+* Add healing log
 * Add death log
-* Add damage taken log
 * Add auras analysis (e.g. uptime)
 * Add absorb log
 * Add a graph for the currently selected meter
