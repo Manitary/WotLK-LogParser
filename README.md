@@ -19,3 +19,4 @@ Upcoming tasks:
 * Add recognition of player classes
 * Coupling of pets/owners - permanent pets may require additional widgets to manually select their owner
 * Add bars on meters, display total and percentage on meters additionally to raw numbers
+* Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
