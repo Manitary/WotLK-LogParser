@@ -1,6 +1,6 @@
 from email.parser import Parser
 import sys
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt
@@ -87,27 +87,29 @@ class MainWindow(QMainWindow):
         while (encounter_query.next()):
             self.encounter_select.addItem(f"{encounter_query.value(0)} ({'kill' if encounter_query.value(3) else 'wipe'}) - {encounter_query.value(1)} | {encounter_query.value(2)}", (encounter_query.value(1), encounter_query.value(2)))
         self.encounter_select.currentTextChanged.connect(self.updateMainQuery)
+        self.encounter_select.currentTextChanged.connect(self.updateSourceList)
 
         self.actors_hbox = QHBoxLayout()
         self.source_select = QComboBox()
         self.target_select = QComboBox()
+        self.source_clear_button = QPushButton("X", self)
+        self.source_clear_button.setMaximumSize(24, 24)
+        self.source_clear_button.clicked.connect(self.resetSourceSelection)
+        self.actors_hbox.addWidget(self.source_clear_button)
         self.actors_hbox.addWidget(self.source_select)
         self.actors_hbox.addWidget(self.target_select)
         self.main_vbox.addLayout(self.actors_hbox)
-        self.source_select.addItem("All friendly", "AllFriendlyUnits")
-        source_query = QSqlQuery()
-        source_query.exec("SELECT unitName, isPet FROM actors WHERE isPlayer = 1 OR isPet = 1 GROUP BY unitName ORDER BY isPlayer DESC, unitName")
-        while (source_query.next()):
-            self.source_select.addItem(f"{'(pet) ' if source_query.value(1) else ''}{source_query.value(0)}", source_query.value(0))
         self.source_select.currentTextChanged.connect(self.updateMainQuery)
-        
+        self.source_current = "AllFriendlyUnits"
+
         self.model = QSqlTableModel()
-        #self.model.setQuery(QSqlQuery("SELECT events.sourceName AS char, SUM(events.amount) AS dmg FROM events JOIN actors ON (events.sourceGUID = actors.unitGUID) WHERE events.timestamp >= '12/13 20:06:22.323' AND events.timestamp <= '12/13 20:09:45.129' AND (actors.isPlayer = 1 OR actors.isPet = 1) AND events.eventName LIKE '%DAMAGE' GROUP BY events.sourceName ORDER BY dmg DESC"))
-        table = QTableView()
-        table.setModel(self.model)
-        table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+        self.table = QTableView()
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.clicked.connect(self.tableClicked)
+        self.table.setModel(self.model)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.model.select()
-        self.main_vbox.addWidget(table)
+        self.main_vbox.addWidget(self.table)
         print('done')
 
     def updateMainQuery(self):
@@ -122,7 +124,31 @@ class MainWindow(QMainWindow):
         self.display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         self.display_query.exec()
         self.model.setQuery(self.display_query)
-        
+    
+    def updateSourceList(self):
+        if self.source_select.currentData():
+            self.source_current = self.source_select.currentData()
+        self.source_select.clear()
+        self.source_select.addItem("All friendly", "AllFriendlyUnits")
+        self.source_query = QSqlQuery()
+        with open('queries/source.sql', 'r') as f:
+            self.source_query.prepare(f.read())
+        self.source_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+        self.source_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+        self.source_query.exec()
+        while (self.source_query.next()):
+            self.source_select.addItem(f"{'(pet) ' if self.source_query.value(1) else ''}{self.source_query.value(0)}", self.source_query.value(0))
+        if self.source_current:
+            self.source_select.setCurrentIndex(self.source_select.findData(self.source_current))
+        else:
+            self.source_select.setCurrentIndex(0)
+
+    def resetSourceSelection(self):
+        self.source_select.setCurrentIndex(0)
+
+    def tableClicked(self, item):
+        if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
+            self.source_select.setCurrentIndex(new_source)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
