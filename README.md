@@ -2,14 +2,22 @@
 
 Parse and view combat logs of World of Warcraft WotLK
 
+### 0.1.1
+New:
+* When on the global damage meter, clicking on a row will open the damage breakdown of the selected character/pet
+* Added a button to return to the global damage meter (for the selected encounter)
+* Changing encounter updates the source to characters that participated in the fight (instead of grabbing a list from the whole log)
+* Changing encounter will keep the current player selected, even if they did not participate, to prevent having to re-select them
+
 ### 0.1.0
 
 Functionalities:
 * Parse a WoWCombatLog.txt file into a usable database for quick data retrieval. This includes computing supplementary information, like identifying player- and server-controlled entities, establishing start/end time of boss encounters (in WotLK there is no event API for it), etc.
 * Visualise the damage meter of a pre-parsed log. Currently limited to selecting an encounter, and displaying either the damage meter of the raid or the damage breakdown of a selected friendly unit (players and pets are currently decoupled).
 
+----
+
 Upcoming tasks:
-* Add widget interactions (e.g. click on a player in the table to see their breakdown for the fight)
 * Add healing log, and a widget to swap between various types of logs
 * Add death log
 * Add damage taken log
