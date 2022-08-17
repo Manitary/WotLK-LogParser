@@ -46,6 +46,8 @@ Functionalities:
 
 ----
 
+## To do (hopefully)
+
 Upcoming tasks:
 * Add auras analysis (e.g. uptime)
 * Add absorb log
@@ -55,6 +57,39 @@ Upcoming tasks:
 * Add bars on meters, display total and percentage on meters additionally to raw numbers
 * Improve detailed death log by including all events since the last time the unit was at full health (start of fight or latest overheal)
 * Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
+* Beautify
 
 Known issues:
 * Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
+
+----
+
+## Example pictures:
+
+Encounter selection
+
+![Encounter selection](https://i.imgur.com/zCeNXpq.png)
+
+Overall / player selection
+
+![Overall / player selection](https://i.imgur.com/DrPTkjl.png)
+
+Damage breakdown
+
+![Damage breakdown](https://i.imgur.com/aPmSNZf.png)
+
+Damage Taken breakdown
+
+![Damage Taken breakdown](https://i.imgur.com/9JswaVI.png)
+
+Healing breakdown
+
+![Healing breakdown](https://i.imgur.com/9YaiUOS.png)
+
+Death log
+
+![Death log](https://i.imgur.com/4tavP9Q.png)
+
+Death recap
+
+![Death recap](https://i.imgur.com/5A4wv6b.png)
