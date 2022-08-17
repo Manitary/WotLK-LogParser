@@ -139,6 +139,7 @@ class parse:
                         #looks like it's not needed in WotLK?
                     elif suffix[0] == 'M': #MISSED
                         query.bindValue(":missType", args[i])
+                        query.bindValue(":absorbed", args[i+1])
                     elif suffix.startswith('DI'): #DISPEL(_)
                         query.bindValue(":extraSpellID", int(args[i]))
                         query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)

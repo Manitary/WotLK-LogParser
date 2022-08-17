@@ -81,7 +81,6 @@ class MainWindow(QMainWindow):
             QMessageBox.critical(None, "Error", f"<p>The following tables are missing from the database: {tables_not_found}</p>")
             sys.exit(1) # Error code 1 - signifies error
         self.setUpMainWindow()
-        self.show()
     
     def setUpMainWindow(self):
         self.encounter_select = QComboBox()
@@ -134,28 +133,38 @@ class MainWindow(QMainWindow):
 
         self.updateUnitList()
         self.updateMainQuery()
-        print('done')
+        print('setup done')
 
     def updateMainQuery(self):
         meter = self.meter_select.currentText()
         if meter == 'Damage Done':
-            print('done')
             self.queryDamageDone()
         elif meter == 'Damage Taken':
-            print('taken')
             self.queryDamageTaken()
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
+        print('query done')
 
     def queryDamageDone(self):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == FRIENDLY:
-            with open('queries/global_damage_done.sql', 'r') as f:
-                display_query.prepare(f.read())
+        if self.source_select.currentData() == AFFILIATION[self.affiliation]:
+            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+                with open('queries/damage_done_all-all.sql', 'r') as f:
+                    display_query.prepare(f.read())
+            else:
+                with open('queries/damage_done_all-1.sql', 'r') as f:
+                    display_query.prepare(f.read())
+                    display_query.bindValue(":targetName", self.target_select.currentData())
+            display_query.bindValue(":affiliation", self.affiliation)
         else:
-            with open('queries/player_damage_done_breakdown.sql', 'r') as f:
-                display_query.prepare(f.read())
+            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+                with open('queries/damage_done_1-all.sql', 'r') as f:
+                    display_query.prepare(f.read())
+            else:
+                with open('queries/damage_done_1-1.sql', 'r') as f:
+                    display_query.prepare(f.read())
+                    display_query.bindValue(":targetName", self.target_select.currentData())
             display_query.bindValue(":sourceName", self.source_select.currentData())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
@@ -164,12 +173,23 @@ class MainWindow(QMainWindow):
 
     def queryDamageTaken(self):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == FRIENDLY:
-            with open('queries/global_damage_taken.sql', 'r') as f:
-                display_query.prepare(f.read())
+        if self.source_select.currentData() == AFFILIATION[self.affiliation]:
+            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+                with open('queries/damage_taken_all-all.sql', 'r') as f:
+                    display_query.prepare(f.read())
+            else:
+                with open('queries/damage_taken_all-1.sql', 'r') as f:
+                    display_query.prepare(f.read())
+                    display_query.bindValue(":sourceName", self.target_select.currentData())
+            display_query.bindValue(":affiliation", self.affiliation)
         else:
-            with open('queries/player_damage_taken_breakdown.sql', 'r') as f:
-                display_query.prepare(f.read())
+            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+                with open('queries/damage_taken_1-all.sql', 'r') as f:
+                    display_query.prepare(f.read())
+            else:
+                with open('queries/damage_taken_1-1.sql', 'r') as f:
+                    display_query.prepare(f.read())
+                    display_query.bindValue(":sourceName", self.target_select.currentData())
             display_query.bindValue(":targetName", self.source_select.currentData())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
@@ -227,7 +247,8 @@ class MainWindow(QMainWindow):
     def swapActorsAffiliation(self):
         self.affiliation = 1 - self.affiliation
         self.actors_swap_button.setText(AFFILIATION[self.affiliation])
-        self.updateUnitList()
+        self.updateUnitList() #Not sure why it doesn't trigger currentTextChanged
+        self.updateMainQuery()
 
     def tableClicked(self, item):
         if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:

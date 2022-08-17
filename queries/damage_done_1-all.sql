@@ -1,12 +1,12 @@
 SELECT
     spellName
-    , dmg
+    , dmg + absorbed AS dmg
     , hit
-    , PRINTF('%d (%2.2f%%)', miss, miss*100/(hit+miss)) as miss
+    , PRINTF('%d (%2.2f%%)', crit, crit*100.00/hit) AS crit
+    , miss
     , absorbed
-    , resisted
     , blocked
-    , crit
+    , resisted
 FROM
     (
         SELECT
@@ -24,9 +24,15 @@ FROM
         WHERE
             timestamp >= :startTime
         AND timestamp <= :endTime
-        AND targetName = :targetName
-        AND (eventName LIKE '%DAMAGE%' OR eventName LIKE '%MISSED')
-        AND spellName IS NOT NULL
-        GROUP BY spellID
-        ORDER BY dmg DESC
+        AND sourceName = :sourceName
+        AND
+            (
+                eventName LIKE '%DAMAGE%'
+            OR  eventName LIKE '%MISSED'
+            )
+        AND spellName IS NOT NULL 
+        GROUP BY
+            spellID
+        ORDER BY
+            dmg DESC
     )
