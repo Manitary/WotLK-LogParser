@@ -2,6 +2,12 @@
 
 Parse and view combat logs of World of Warcraft WotLK
 
+### 0.2.1
+New:
+* Added healing meter. Absorbs are not included until auras are implemented (WotLK does not have proper absorb tracking, only amount of spell/swing damage absorbed with no additional info)
+Bugfix:
+* Affiliation of the target list should change according to the chosen meter (A<->A for healing, A<->B for damage)
+
 ### 0.1.3
 Bugfix:
 * Fixed parsing of fully absorbed hits
@@ -33,7 +39,6 @@ Functionalities:
 ----
 
 Upcoming tasks:
-* Add healing log
 * Add death log
 * Add auras analysis (e.g. uptime)
 * Add absorb log
