@@ -2,11 +2,19 @@
 
 Parse and view combat logs of World of Warcraft WotLK
 
+### 0.1.3
+Bugfix:
+* Fixed parsing of fully absorbed hits
+* The swap button now forces a refresh of the table
+* Damage Done/Taken meters now should work properly in all cases (1/all sources/targets selected)
+
 ### 0.1.2
 New:
 * Added setup for target selection (currently inactive, will only query 'all targets'), with a button to return to global selection
 * Added a meter selection
 * Added Damage Taken meter
+
+Tweaks:
 * Improved source/target list handling
 
 ### 0.1.1
