@@ -148,6 +148,8 @@ class MainWindow(QMainWindow):
             self.queryDamageTaken()
         elif meter == HEALING:
             self.queryHealing()
+        elif meter == DEATHS:
+            self.queryDeaths()
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
@@ -228,8 +230,27 @@ class MainWindow(QMainWindow):
         display_query.exec()
         self.model.setQuery(display_query)
 
-    def queryDeaths(self):
-        pass
+    def queryDeaths(self, timestamp = None):
+        display_query = QSqlQuery()
+        if timestamp:
+            with open('queries/deaths_1.sql', 'r') as f:
+                display_query.prepare(f.read())
+            display_query.bindValue(":targetName", self.source_select.currentData())
+            display_query.bindValue(":endTime", timestamp)
+            display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+            display_query.exec()
+            self.model.setQuery(display_query)
+        elif self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+            with open('queries/deaths_all.sql', 'r') as f:
+                display_query.prepare(f.read())
+            display_query.bindValue(":affiliation", self.source_affiliation)
+            display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+            display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+            display_query.exec()
+            self.model.setQuery(display_query)
+        else:
+            self.source_select.setCurrentIndex(0)
+        
 
     def updateUnitList(self):
         self.source_select.disconnect()
@@ -291,6 +312,13 @@ class MainWindow(QMainWindow):
     def tableClicked(self, item):
         if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
             self.source_select.setCurrentIndex(new_source)
+        elif self.meter_select.currentText() == DEATHS:
+            ts = item.siblingAtColumn(5).data()
+            #Hacky disconnect, may want to revisit the source list selector (and add death timestamp to the data)
+            self.source_select.disconnect()
+            self.source_select.setCurrentIndex(self.source_select.findText(item.siblingAtColumn(1).data()))
+            self.source_select.currentTextChanged.connect(self.updateMainQuery)
+            self.queryDeaths(ts)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

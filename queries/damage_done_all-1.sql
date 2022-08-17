@@ -14,7 +14,8 @@ WHERE
         (
             actors.isPlayer = :affiliation
         OR  actors.isPet = :affiliation
-        OR  (
+        OR
+            (
                 :affiliation = 0
             AND actors.isNPC = 1
             )

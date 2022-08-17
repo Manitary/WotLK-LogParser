@@ -58,7 +58,7 @@ class parse:
                 if line_num % 10000 == 0:
                     print(line_num, time.time() - start)
                     start = time.time()
-                query.bindValue(":timestamp", f"{self.year}-{args[0].replace('-', '/')}")
+                query.bindValue(":timestamp", f"{self.year}-{args[0].replace('/', '-')}")
                 query.bindValue(":eventName", args[1])
                 query.bindValue(":sourceGUID", args[2])
                 query.bindValue(":sourceName", args[3][1:-1] if args[3] != 'nil' else None)
@@ -291,7 +291,7 @@ class parse:
         with open('queries/encounters.sql', 'r') as f:
             query.exec(f.read())
         getTime = QSqlQuery()
-        getTime.prepare("SELECT DISTINCT timestamp FROM events WHERE (sourceName = :unitName OR targetName = :unitName) AND eventName LIKE '%DAMAGE'")
+        getTime.prepare("SELECT DISTINCT timestamp FROM events WHERE (sourceName = :unitName OR targetName = :unitName) AND eventName LIKE '%DAMAGE' OR eventName = 'UNIT_DIED'")
         insertTime = QSqlQuery()
         insertTime.prepare("INSERT INTO encounters (unitGUID, enemy, timeStart, timeEnd, isKill) VALUES (:unitGUID, :enemy, :timeStart, :timeEnd, :isKill)")
         timediff = datetime.timedelta(seconds = 30)
