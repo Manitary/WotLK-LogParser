@@ -33,6 +33,6 @@ FROM
         AND spellName IS NOT NULL 
         GROUP BY
             spellID
-        ORDER BY
-            dmg DESC
     )
+ORDER BY
+    dmg DESC

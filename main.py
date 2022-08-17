@@ -10,6 +10,10 @@ ALL = "AllUnits"
 FRIENDLY = "Friendlies"
 HOSTILE = "Enemies"
 AFFILIATION = [HOSTILE, FRIENDLY]
+DAMAGEDONE = "Damage Done"
+DAMAGETAKEN = "Damage Taken"
+HEALING = "Healing"
+DEATHS = "Deaths"
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -94,33 +98,35 @@ class MainWindow(QMainWindow):
 
         self.meter_select = QComboBox()
         self.main_vbox.addWidget(self.meter_select)
-        meters = ['Damage Done', 'Healing', 'Damage Taken', 'Deaths']
+        meters = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS]
         self.meter_select.addItems(meters)
-        self.meter_select.currentTextChanged.connect(self.updateMainQuery)
+        self.meter_select.currentTextChanged.connect(self.updateUnitList)
 
-        self.actors_hbox = QHBoxLayout()
         self.source_select = QComboBox()
+        self.source_select.currentTextChanged.connect(self.updateMainQuery)
         self.target_select = QComboBox()
+        self.target_select.currentTextChanged.connect(self.updateMainQuery)
+        self.source_current = FRIENDLY
+        self.target_current = HOSTILE
+        self.source_affiliation = 1
+        self.target_affiliation = 0
         self.source_clear_button = QPushButton("X", self)
         self.source_clear_button.setMaximumSize(24, 24)
         self.source_clear_button.clicked.connect(self.resetSourceSelection)
         self.target_clear_button = QPushButton("X", self)
         self.target_clear_button.setMaximumSize(24, 24)
         self.target_clear_button.clicked.connect(self.resetTargetSelection)
-        self.affiliation = 1
-        self.actors_swap_button = QPushButton(AFFILIATION[self.affiliation], self)
+        self.actors_swap_button = QPushButton(AFFILIATION[self.source_affiliation], self)
         self.actors_swap_button.setMaximumSize(75, 24)
-        self.actors_swap_button.clicked.connect(self.swapActorsAffiliation)
+        self.actors_swap_button.clicked.connect(self.swapAffiliation)
+
+        self.actors_hbox = QHBoxLayout()
         self.actors_hbox.addWidget(self.source_clear_button)
         self.actors_hbox.addWidget(self.source_select)
         self.actors_hbox.addWidget(self.actors_swap_button)
         self.actors_hbox.addWidget(self.target_select)
         self.actors_hbox.addWidget(self.target_clear_button)
         self.main_vbox.addLayout(self.actors_hbox)
-        self.source_select.currentTextChanged.connect(self.updateMainQuery)
-        self.source_current = FRIENDLY
-        self.target_select.currentTextChanged.connect(self.updateMainQuery)
-        self.target_current = HOSTILE
 
         self.model = QSqlTableModel()
         self.table = QTableView()
@@ -132,15 +138,16 @@ class MainWindow(QMainWindow):
         self.main_vbox.addWidget(self.table)
 
         self.updateUnitList()
-        self.updateMainQuery()
         print('setup done')
 
     def updateMainQuery(self):
         meter = self.meter_select.currentText()
-        if meter == 'Damage Done':
+        if meter == DAMAGEDONE:
             self.queryDamageDone()
-        elif meter == 'Damage Taken':
+        elif meter == DAMAGETAKEN:
             self.queryDamageTaken()
+        elif meter == HEALING:
+            self.queryHealing()
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
@@ -148,17 +155,17 @@ class MainWindow(QMainWindow):
 
     def queryDamageDone(self):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == AFFILIATION[self.affiliation]:
-            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+        if self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+            if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_done_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
             else:
                 with open('queries/damage_done_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
                     display_query.bindValue(":targetName", self.target_select.currentData())
-            display_query.bindValue(":affiliation", self.affiliation)
+            display_query.bindValue(":affiliation", self.source_affiliation)
         else:
-            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+            if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_done_1-all.sql', 'r') as f:
                     display_query.prepare(f.read())
             else:
@@ -173,17 +180,17 @@ class MainWindow(QMainWindow):
 
     def queryDamageTaken(self):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == AFFILIATION[self.affiliation]:
-            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+        if self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+            if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_taken_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
             else:
                 with open('queries/damage_taken_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
                     display_query.bindValue(":sourceName", self.target_select.currentData())
-            display_query.bindValue(":affiliation", self.affiliation)
+            display_query.bindValue(":affiliation", self.source_affiliation)
         else:
-            if self.target_select.currentData() == AFFILIATION[1 - self.affiliation]:
+            if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_taken_1-all.sql', 'r') as f:
                     display_query.prepare(f.read())
             else:
@@ -197,7 +204,29 @@ class MainWindow(QMainWindow):
         self.model.setQuery(display_query)
 
     def queryHealing(self):
-        pass
+        display_query = QSqlQuery()
+        if self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
+                with open('queries/healing_done_all-all.sql', 'r') as f:
+                    display_query.prepare(f.read())
+            else:
+                with open('queries/healing_done_all-1.sql', 'r') as f:
+                    display_query.prepare(f.read())
+                    display_query.bindValue(":targetName", self.target_select.currentData())
+            display_query.bindValue(":affiliation", self.source_affiliation)
+        else:
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
+                with open('queries/healing_done_1-all.sql', 'r') as f:
+                    display_query.prepare(f.read())
+            else:
+                with open('queries/healing_done_1-1.sql', 'r') as f:
+                    display_query.prepare(f.read())
+                    display_query.bindValue(":targetName", self.target_select.currentData())
+            display_query.bindValue(":sourceName", self.source_select.currentData())
+        display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+        display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+        display_query.exec()
+        self.model.setQuery(display_query)
 
     def queryDeaths(self):
         pass
@@ -211,10 +240,10 @@ class MainWindow(QMainWindow):
             self.target_current = self.target_select.currentData()
         self.source_select.clear()
         self.target_select.clear()
+        self.updateTargetAffiliation()
+        self.source_select.addItem(f"All {AFFILIATION[self.source_affiliation]}", AFFILIATION[self.source_affiliation])
+        self.target_select.addItem(f"All {AFFILIATION[self.target_affiliation]}", AFFILIATION[self.target_affiliation])
 
-        self.source_select.addItem(f"All {AFFILIATION[self.affiliation]}", AFFILIATION[self.affiliation])
-        self.target_select.addItem(f"All {AFFILIATION[1 - self.affiliation]}", AFFILIATION[1 - self.affiliation])
-        
         unit_query = QSqlQuery()
         with open('queries/find_actors.sql', 'r') as f:
             unit_query.prepare(f.read())
@@ -223,9 +252,9 @@ class MainWindow(QMainWindow):
         unit_query.exec()
         while (unit_query.next()):
             #Take into account mind controlled NPC as friendly (isPet = 1, isNPC = 1)
-            if unit_query.value(1) == self.affiliation or unit_query.value(3) == 1 - self.affiliation or (unit_query.value(2) and self.affiliation):
+            if unit_query.value(1) == self.source_affiliation or unit_query.value(3) == 1 - self.source_affiliation or (unit_query.value(2) and self.source_affiliation):
                 self.source_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(0))
-            if (unit_query.value(3) or 0) == self.affiliation or (unit_query.value(2) and not self.affiliation):
+            if unit_query.value(1) == self.target_affiliation or unit_query.value(3) == 1 - self.target_affiliation or (unit_query.value(2) and self.target_affiliation):
                 self.target_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(0))
         self.source_select.currentTextChanged.connect(self.updateMainQuery)
         self.target_select.currentTextChanged.connect(self.updateMainQuery)
@@ -237,6 +266,7 @@ class MainWindow(QMainWindow):
         if self.target_current:
             index = self.target_select.findData(self.target_current)
             self.target_select.setCurrentIndex(0 if index == -1 else index)
+        self.updateMainQuery()
 
     def resetSourceSelection(self):
         self.source_select.setCurrentIndex(0)
@@ -244,11 +274,19 @@ class MainWindow(QMainWindow):
     def resetTargetSelection(self):
         self.target_select.setCurrentIndex(0)
 
-    def swapActorsAffiliation(self):
-        self.affiliation = 1 - self.affiliation
-        self.actors_swap_button.setText(AFFILIATION[self.affiliation])
-        self.updateUnitList() #Not sure why it doesn't trigger currentTextChanged
-        self.updateMainQuery()
+    def swapAffiliation(self):
+        self.source_affiliation = 1 - self.source_affiliation
+        self.actors_swap_button.setText(AFFILIATION[self.source_affiliation])
+        self.updateUnitList()
+    
+    def updateTargetAffiliation(self):
+        meter = self.meter_select.currentText()
+        if meter in (DAMAGEDONE, DAMAGETAKEN):
+            self.target_affiliation = 1 - self.source_affiliation
+        elif meter in (HEALING):
+            self.target_affiliation = self.source_affiliation
+        else:
+            self.target_affiliation = 0
 
     def tableClicked(self, item):
         if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
