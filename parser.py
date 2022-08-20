@@ -1,9 +1,12 @@
+from gettext import bind_textdomain_codeset
+from math import perm
 import sys, os, platform
 import re
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
 import time, datetime
 from dateutil.parser import parse as timeparse
 from encounters import encounter_creature, creature_encounter
+from pet_recognition import permanent_pet_spells, temporary_pet_spells, pet_summon_pet
 
 class parse:
     def __init__(self, sourceFile):
@@ -17,6 +20,7 @@ class parse:
         self.populateActors()
         self.populateEncounters()
         self.testQueries()
+        self.assignPets()
     
     def generateFileName(self):
         try:
@@ -229,19 +233,10 @@ class parse:
     def testQueries(self):
         print('running test query')
         query = QSqlQuery()
-        #query.exec("SELECT DISTINCT sourceGUID, sourceName FROM events")
-        #query.exec("SELECT sourceName, SUM(amount) AS dmg FROM events WHERE (eventName = 'SWING_DAMAGE' or eventName = 'SPELL_DAMAGE' or eventName = 'SPELL_PERIODIC_DAMAGE') AND (targetName = 'Patchwerk') GROUP BY sourceName ORDER BY dmg DESC")
-        #with open('test_query.sql', 'r') as f:
-        #    query.exec(f.read())
-        #query.exec("SELECT sourceGUID, sourceName, sourceFlags FROM events WHERE sourceFlags = '0x1114' GROUP BY sourceGUID ")
-        #query.exec("SELECT COUNT(critical) FROM events WHERE eventName = 'SWING_DAMAGE' AND sourceName = 'Watary' LIMIT 10")
-        #query.exec("SELECT id, unitGUID, enemy, timeStart, timeEnd, isKill FROM encounters")
         query.exec("SELECT * FROM events WHERE spellName = 'Hymn of Hope'")
         print('test query done')
         while (query.next()):
-            #print(query.value(0), query.value(1), query.value(2), query.value(3), query.value(4), query.value(5))
             print([query.value(i) for i in range(30)])
-
 
     def populateActors(self):
         query = QSqlQuery()
@@ -279,11 +274,6 @@ class parse:
                     add_npc.bindValue(':unitGUID', query.value(0))
                     add_npc.bindValue(':unitName', query.value(1))
                     add_npc.exec()
-        '''
-        query.exec("SELECT unitGUID, unitName, isPet, isNPC FROM actors WHERE isPet = 1 GROUP BY unitName")
-        while (query.next()):
-            print(query.value(0), query.value(1), query.value(2), query.value(3))
-        '''
 
     def populateEncounters(self):
         query = QSqlQuery()
@@ -329,6 +319,42 @@ class parse:
                         insertTime.bindValue(":timeEnd", encounter_end[i])
                         insertTime.bindValue(":isKill", isKill)
                         insertTime.exec()
+
+    def assignPets(self):
+        query = QSqlQuery()
+        query.exec('DROP TABLE pets')
+        with open('queries/pets.sql', 'r') as f:
+            query.exec(f.read())
+
+        #Permanent pets
+        getOwner = QSqlQuery()
+        getOwner.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) SELECT CASE WHEN s.isPlayer = 1 THEN e.targetGUID ELSE e.sourceGUID END , CASE WHEN s.isPlayer = 1 THEN e.targetName ELSE e.sourceName END, CASE WHEN s.isPlayer = 1 THEN e.sourceGUID ELSE e.targetGUID END, CASE WHEN s.isPlayer = 1 THEN e.sourceName ELSE e.targetName END FROM events e JOIN actors s ON e.sourceGUID = s.unitGUID JOIN actors t ON e.targetGUID = t.unitGUID WHERE e.eventName = :eventName AND e.spellID = :spellID AND ((s.isPet = 1 AND s.isNPC IS NULL AND t.isPlayer = 1) OR (s.isPlayer = 1 AND t.isPet = 1 AND t.isNPC IS NULL)) GROUP BY e.sourceGUID, e.targetGUID ON CONFLICT DO NOTHING")
+        for spell in permanent_pet_spells:
+            #Cannot bind lists -> Only check max rank spells
+            getOwner.bindValue(':spellID', permanent_pet_spells[spell]['spellID'][-1])
+            #Cannot bind lists -> Check all possible events individually
+            for event in permanent_pet_spells[spell]['eventName']:
+                getOwner.bindValue(':eventName', event)
+                getOwner.exec()
+
+        #Temporary pets
+        getOwner.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) SELECT e.targetGUID, e.targetName, e.sourceGUID, e.sourceName FROM events e JOIN actors s ON e.sourceGUID = s.unitGUID JOIN actors t ON e.targetGUID = t.unitGUID WHERE e.eventName = 'SPELL_SUMMON' AND e.spellID = :spellID AND s.isPlayer = 1 AND t.isPet = 1 AND t.isNPC IS NULL GROUP BY e.sourceGUID, e.targetGUID ON CONFLICT DO NOTHING")
+        for spell in temporary_pet_spells:
+            #Only check max rank
+            getOwner.bindValue(':spellID', temporary_pet_spells[spell][-1])
+            getOwner.exec()
+
+        #Pets summoned by other pets
+        getOwner.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) SELECT e.targetGUID, e.targetName, p.ownerGUID, p.ownerName FROM events e JOIN pets p ON e.sourceGUID = p.petGUID WHERE e.eventName = 'SPELL_SUMMON' AND e.spellID = :spellID")
+        for spell in pet_summon_pet:
+            getOwner.bindValue(':spellID', pet_summon_pet[spell][-1])
+            getOwner.exec()
+
+        tq = QSqlQuery()
+        tq.exec('SELECT ownerName, petName FROM pets GROUP BY ownerName, petName')
+        while (tq.next()):
+            print(tq.value(0), tq.value(1))
+
 
 if __name__ == "__main__":
     parse()
