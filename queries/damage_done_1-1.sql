@@ -1,12 +1,13 @@
 SELECT
     t.sp AS spellName
     , PRINTF('%05.2f%% | %d', (dmg + absorbed) * 100.00 / (SUM(t.dmg) OVER() + SUM(t.absorbed) OVER()), dmg + absorbed) AS dmg
-    , hit
+    , CASE WHEN hit > 0 THEN hit ELSE '-' END AS hit
     , CASE  WHEN c.casts > 0 THEN c.casts
             WHEN (
                     t.sp LIKE '%MeleeSwing'
                 OR  t.sp = 'Auto Shot'
                 OR  t.sp = 'Shoot'
+                OR  t.sp NOT LIKE '%(DoT)'
                 )
                 THEN IFNULL(hit, 0) + IFNULL(miss, 0)
             ELSE '-'
@@ -19,7 +20,7 @@ SELECT
 FROM
     (
         SELECT
-            CASE WHEN sourceName = :sourceName THEN spellName ELSE '(' || sourceName || ') ' || spellName END AS sp
+            IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , spellID
             , SUM(amount) AS dmg
             , COUNT(amount) AS hit
@@ -56,7 +57,7 @@ FROM
 LEFT JOIN
     (
         SELECT
-            CASE WHEN sourceName = :sourceName THEN spellName ELSE '(' || sourceName || ') ' || spellName END AS sp
+            IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , COUNT(eventName) AS casts
         FROM
             events
@@ -72,7 +73,11 @@ LEFT JOIN
                 sourceName = :sourceName
             OR  ownerName = :sourceName
             )
-        AND eventName = 'SPELL_CAST_SUCCESS'
+        AND
+            (
+                eventName = 'SPELL_CAST_SUCCESS'
+            OR  eventName = 'SPELL_CAST_START'
+            )
         AND spellName IS NOT NULL
         GROUP BY
             sp
