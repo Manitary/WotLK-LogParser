@@ -1,5 +1,5 @@
 SELECT
-    spellName
+    sp AS spellName
     , dmg + absorbed AS dmg
     , hit
     , PRINTF('%d (%2.2f%%)', crit, crit*100.00/hit) AS crit
@@ -10,7 +10,7 @@ SELECT
 FROM
     (
         SELECT
-            spellName
+            CASE WHEN sourceName = :sourceName THEN spellName ELSE '(' || sourceName || ') ' || spellName END AS sp
             , spellID
             , SUM(amount) AS dmg
             , COUNT(amount) AS hit
@@ -21,10 +21,18 @@ FROM
             , SUM(critical) AS crit
         FROM
             events
+        LEFT JOIN
+            pets
+        ON
+            events.sourceGUID = pets.petGUID
         WHERE
             timestamp >= :startTime
         AND timestamp <= :endTime
-        AND sourceName = :sourceName
+        AND
+            (
+                sourceName = :sourceName
+            OR  ownerName = :sourceName
+            )
         AND
             (
                 eventName LIKE '%DAMAGE%'
@@ -32,7 +40,7 @@ FROM
             )
         AND spellName IS NOT NULL 
         GROUP BY
-            spellID
+            sp
     )
 ORDER BY
     dmg DESC
