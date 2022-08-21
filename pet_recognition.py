@@ -97,6 +97,7 @@ temporary_pet_spells = {
     'Dancing Rune Weapon': (49028,),
     'Summon Gargoyle': (49206,),
     'Raise Dead': (46585,),
+    'Army of the Dead': (42651,),
     #Priest
     'Shadowfiend': (34433,),
     #Druid

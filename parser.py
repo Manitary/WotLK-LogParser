@@ -16,10 +16,10 @@ class parse:
         self.createConnection()
         if not self.duplicate:
             self.populateDB()
-        self.populateDB()
-        self.populateActors()
-        self.populateEncounters()
-        self.testQueries()
+        #self.populateDB()
+        #self.populateActors()
+        #self.populateEncounters()
+        #self.testQueries()
         self.assignPets()
     
     def generateFileName(self):
