@@ -1,8 +1,8 @@
 SELECT
     t.sp AS spellName
-    , PRINTF('%05.2f%% | %d', (dmg + absorbed) * 100.00 / (SUM(t.dmg) OVER() + SUM(t.absorbed) OVER()), dmg + absorbed) AS dmg
+    , PRINTF('%05.2f%% | %d', (dmg + absorbed) * 100.0 / (SUM(dmg) OVER() + SUM(absorbed) OVER()), dmg + absorbed) AS dmg
     , CASE WHEN hit > 0 THEN hit ELSE '-' END AS hit
-    , CASE  WHEN c.casts > 0 THEN c.casts
+    , CASE  WHEN casts > 0 THEN casts
             WHEN (
                     t.sp LIKE '%MeleeSwing'
                 OR  t.sp = 'Auto Shot'
@@ -12,8 +12,8 @@ SELECT
                 THEN IFNULL(hit, 0) + IFNULL(miss, 0)
             ELSE '-'
             END AS numcasts
-    , CASE WHEN crit > 0 THEN PRINTF('%d (%2.2f%%)', crit, crit * 100.00 / hit) ELSE '-' END AS crit
-    , CASE WHEN miss > 0 THEN PRINTF('%d (%2.2f%%)', miss, miss * 100.00 / (hit + miss)) ELSE '-' END AS miss
+    , CASE WHEN crit > 0 THEN PRINTF('%d (%2.2f%%)', crit, crit * 100.0 / hit) ELSE '-' END AS crit
+    , CASE WHEN miss > 0 THEN PRINTF('%d (%2.2f%%)', miss, miss * 100.0 / (hit + miss)) ELSE '-' END AS miss
     , CASE WHEN absorbed > 0 THEN PRINTF('%d (%2.2f%%)', absorbed, absorbed * 100.0 / (dmg + absorbed)) ELSE '-' END AS absorbed
     , CASE WHEN blocked > 0 THEN PRINTF('%d (%2.2f%%)', blocked, blocked * 100.0 / (blocked + dmg + absorbed)) ELSE '-' END AS blocked
     , CASE WHEN resisted > 0 THEN PRINTF('%d (%2.2f%%)', resisted, resisted * 100.0 / (resisted + dmg + absorbed)) ELSE '-' END AS resisted
@@ -47,7 +47,6 @@ FROM
             (
                 eventName LIKE '%DAMAGE%'
             OR  eventName LIKE '%MISSED'
-            OR  eventName = 'SPELL_CAST_SUCCESS'
             )
         AND spellName IS NOT NULL
         GROUP BY

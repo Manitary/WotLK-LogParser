@@ -1,6 +1,6 @@
 SELECT
     t.sp AS spellName
-    , PRINTF('%05.2f%% | %d', (dmg + absorbed) * 100.00 / (SUM(t.dmg) OVER() + SUM(t.absorbed) OVER()), dmg + absorbed) AS dmg
+    , PRINTF('%05.2f%% | %d', (dmg + absorbed) * 100.0 / (SUM(t.dmg) OVER() + SUM(t.absorbed) OVER()), dmg + absorbed) AS dmg
     , CASE WHEN hit > 0 THEN hit ELSE '-' END AS hit
     , CASE  WHEN c.casts > 0 THEN c.casts
             WHEN (
@@ -36,21 +36,20 @@ FROM
         ON
             events.sourceGUID = pets.petGUID
         WHERE
-            timestamp >= :startTime
-        AND timestamp <= :endTime
-        AND 
-            (
-                sourceName = :sourceName
-            OR  ownerName = :sourceName
-            )
-        AND targetName = :targetName
-        AND
-            (
-                eventName LIKE '%DAMAGE%'
-            OR  eventName LIKE '%MISSED'
-            OR  eventName = 'SPELL_CAST_SUCCESS'
-            )
-        AND spellName IS NOT NULL
+                timestamp >= :startTime
+            AND timestamp <= :endTime
+            AND 
+                (
+                    sourceName = :sourceName
+                OR  ownerName = :sourceName
+                )
+            AND targetName = :targetName
+            AND
+                (
+                    eventName LIKE '%DAMAGE%'
+                OR  eventName LIKE '%MISSED'
+                )
+            AND spellName IS NOT NULL
         GROUP BY
             sp
     ) t

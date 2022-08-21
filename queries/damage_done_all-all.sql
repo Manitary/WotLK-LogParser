@@ -18,7 +18,7 @@ FROM
                 JOIN
                     actors
                 ON
-                    (events.sourceGUID = actors.unitGUID)
+                    events.sourceGUID = actors.unitGUID
                 WHERE
                         events.timestamp >= :startTime
                     AND events.timestamp <= :endTime
@@ -26,7 +26,8 @@ FROM
                         (
                             actors.isPlayer = :affiliation
                         OR  actors.isPet = :affiliation
-                        OR  (
+                        OR
+                            (
                                 :affiliation = 0
                             AND actors.isNPC = 1
                             )
