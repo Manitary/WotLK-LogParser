@@ -1,6 +1,12 @@
 ## WotLK-LogParser
 
-Parse and view combat logs of World of Warcraft WotLK
+A personal mini-project to create a program to parse and view combat logs of World of Warcraft WotLK locally.
+It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
+
+### 0.4.1
+New:
+* Added automatic coupling of pet <-> pet owner during parsing. It will not always work, for example with permanent pets that never interact with their owner (through buffs/heals) or with temporary pets for which the summon event is not registered in the combat log for any reason.
+* Pets are now merged with their owner in the meter, both damage and healing. Pets with an unknown owner will still be displayed separately.
 
 ### 0.3.1
 New:
@@ -53,7 +59,7 @@ Upcoming tasks:
 * Add absorb log
 * Add a graph for the currently selected meter
 * Add recognition of player classes
-* Coupling of pets/owners - permanent pets may require additional widgets to manually select their owner
+* Add a widget to manually pair pet <-> owner - useful when automatic recognition is not possible (e.g. permanent pet never interacting with its owner)
 * Add bars on meters, display total and percentage on meters additionally to raw numbers
 * Improve detailed death log by including all events since the last time the unit was at full health (start of fight or latest overheal)
 * Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
@@ -61,6 +67,7 @@ Upcoming tasks:
 
 Known issues:
 * Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
+* Parsing is very slow (1M entries take 30+ minutes)
 
 ----
 
