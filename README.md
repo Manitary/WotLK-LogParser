@@ -1,6 +1,7 @@
 ## WotLK-LogParser
 
 A personal mini-project to create a program to parse and view combat logs of World of Warcraft WotLK locally.
+
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
 ### 0.4.1
