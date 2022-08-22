@@ -7,6 +7,7 @@ import time, datetime
 from dateutil.parser import parse as timeparse
 from encounters import encounter_creature, creature_encounter
 from pet_recognition import permanent_pet_spells, temporary_pet_spells, pet_summon_pet
+import traceback
 
 class parse:
     def __init__(self, sourceFile):
@@ -20,13 +21,14 @@ class parse:
         #self.populateActors()
         #self.populateEncounters()
         #self.testQueries()
-        self.assignPets()
+        #self.assignPets()
+        #self.populateAuras()
     
     def generateFileName(self):
         try:
             with open(self.sourceFile, "r") as f:
                 timestamp = re.search(r"^(\d{1,2})\/(\d{1,2}) (\d{1,2}):(\d{1,2}):(\d{1,2})\.\d{1,3}", f.readline())
-            self.year = time.localtime(os.path.getctime(self.sourceFile)).tm_year #only works in Windows
+            self.year = time.localtime(os.path.getmtime(self.sourceFile)).tm_year
             self.parseFileName = f"{self.year}{''.join(timestamp.groups())}"
         except Exception as e:
             print(e)
@@ -57,114 +59,120 @@ class parse:
         with open(self.sourceFile, "r") as f:
             start = time.time()
             for line_num, line in enumerate(f.readlines()):
-                query.prepare(events_prepare_insert)
-                args = re.split('  |,', line.rstrip())
-                if line_num % 10000 == 0:
-                    print(line_num, time.time() - start)
-                    start = time.time()
-                query.bindValue(":timestamp", f"{self.year}-{args[0].replace('/', '-')}")
-                query.bindValue(":eventName", args[1])
-                query.bindValue(":sourceGUID", args[2])
-                query.bindValue(":sourceName", args[3][1:-1] if args[3] != 'nil' else None)
-                query.bindValue(":sourceFlags", args[4])
-                query.bindValue(":targetGUID", args[5])
-                query.bindValue(":targetName", args[6][1:-1] if args[6] != 'nil' else None)
-                query.bindValue(":targetFlags", args[7])
-                i = 8
-                suffix = ''
-                #parse prefix
-                if args[1].startswith('SP'): #SPELL_
-                    suffix = args[1][6:]
-                    query.bindValue(":spellID", int(args[8]))
-                    query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
-                    query.bindValue(":spellSchool", args[10])
-                    i += 3
-                    if suffix[0] == 'P' or suffix[0] == 'B': #PERIODIC_ | BUILDING_
-                        suffix = suffix[9:]
-                elif args[1].startswith('SW'): #SWING_
-                    suffix = args[1][6:]
-                    query.bindValue(":spellName", 'MeleeSwing')
-                    query.bindValue(":spellSchool", '0x1')
-                elif args[1][0] == 'R': #RANGE_
-                    suffix = args[1][6:]
-                    query.bindValue(":spellID", int(args[8]))
-                    query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
-                    query.bindValue(":spellSchool", args[10])
-                    i += 3
-                elif args[1][0] == 'D': #DAMAGE_
-                    query.bindValue(":spellID", int(args[8]))
-                    query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
-                    query.bindValue(":spellSchool", args[10])
-                    i += 3
-                    if args[1].endswith('ED'): #DAMAGE_SHIELD_MISSED
-                        suffix = 'MISSED'
-                    else: #DAMAGE_SPLIT | DAMAGE_SHIELD
-                        suffix = 'DAMAGE'
-                elif args[1].startswith('ENV'): #ENVIRONMENTAL_
-                    query.bindValue(":environmentalType", args[8])
-                    suffix = args[1][14:]
-                    i += 1
-                elif args[1].startswith('ENC'): #ENCHANT_APPLIED | ENCHANT_REMOVED
-                    query.bindValue(":spellName", args[8][1:-1] if args[8] != 'nil' else None)
-                    query.bindValue(":itemID", int(args[9]))
-                    query.bindValue(":itemName", args[10][1:-1] if args[10] != 'nil' else None)
-                #parse suffix
-                if suffix:
-                    if suffix.startswith('DA'): #DAMAGE
-                        query.bindValue(":amount", int(args[i]))
-                        query.bindValue(":overkill",int(args[i+1]))
-                        query.bindValue(":school", int(args[i+2]))
-                        query.bindValue(":resisted", int(args[i+3]))
-                        query.bindValue(":blocked", int(args[i+4]))
-                        query.bindValue(":absorbed", int(args[i+5]))
-                        query.bindValue(":critical", 0 if args[i+6] == 'nil' else int(args[i+6]))
-                        query.bindValue(":glancing", 0 if args[i+7] == 'nil' else int(args[i+7]))
-                        query.bindValue(":crushing", 0 if args[i+8] == 'nil' else int(args[i+8]))
-                    elif suffix == 'HEAL': #HEAL
-                        query.bindValue(":amount", int(args[i]))
-                        query.bindValue(":overhealing", int(args[i+1]))
-                        query.bindValue(":absorbed", int(args[i+2]))
-                        query.bindValue(":critical", 0 if args[i+3] == 'nil' else int(args[i+3]))
-                    elif suffix[0] == 'A': #AURA_
-                        if suffix[-1] == 'E': #APPLIED_DOSE | REMOVED_DOSE
-                            query.bindValue(":auraType", args[i])
-                            query.bindValue(":amount", int(args[i+1]))
-                        elif suffix[-1] == 'L': #BROKEN_SPELL
+                try:
+                    query.prepare(events_prepare_insert)
+                    args = re.split('  |,', line.rstrip())
+                    if line_num % 10000 == 0:
+                        print(line_num, time.time() - start)
+                        start = time.time()
+                    query.bindValue(":timestamp", f"{self.year}-{args[0].replace('/', '-')}")
+                    query.bindValue(":eventName", args[1])
+                    query.bindValue(":sourceGUID", args[2])
+                    query.bindValue(":sourceName", args[3][1:-1] if args[3] != 'nil' else None)
+                    query.bindValue(":sourceFlags", args[4])
+                    query.bindValue(":targetGUID", args[5])
+                    query.bindValue(":targetName", args[6][1:-1] if args[6] != 'nil' else None)
+                    query.bindValue(":targetFlags", args[7])
+                    i = 8
+                    suffix = ''
+                    #parse prefix
+                    if args[1].startswith('SP'): #SPELL_
+                        suffix = args[1][6:]
+                        query.bindValue(":spellID", int(args[8]))
+                        query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
+                        query.bindValue(":spellSchool", args[10])
+                        i += 3
+                        if suffix[0] == 'P' or suffix[0] == 'B': #PERIODIC_ | BUILDING_
+                            suffix = suffix[9:]
+                    elif args[1].startswith('SW'): #SWING_
+                        suffix = args[1][6:]
+                        query.bindValue(":spellName", 'MeleeSwing')
+                        query.bindValue(":spellSchool", '0x1')
+                    elif args[1][0] == 'R': #RANGE_
+                        suffix = args[1][6:]
+                        query.bindValue(":spellID", int(args[8]))
+                        query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
+                        query.bindValue(":spellSchool", args[10])
+                        i += 3
+                    elif args[1][0] == 'D': #DAMAGE_
+                        query.bindValue(":spellID", int(args[8]))
+                        query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
+                        query.bindValue(":spellSchool", args[10])
+                        i += 3
+                        if args[1].endswith('ED'): #DAMAGE_SHIELD_MISSED
+                            suffix = 'MISSED'
+                        else: #DAMAGE_SPLIT | DAMAGE_SHIELD
+                            suffix = 'DAMAGE'
+                    elif args[1].startswith('ENV'): #ENVIRONMENTAL_
+                        query.bindValue(":environmentalType", args[8])
+                        suffix = args[1][14:]
+                        i += 1
+                    elif args[1].startswith('ENC'): #ENCHANT_APPLIED | ENCHANT_REMOVED
+                        query.bindValue(":spellName", args[8][1:-1] if args[8] != 'nil' else None)
+                        query.bindValue(":itemID", int(args[9]))
+                        query.bindValue(":itemName", args[10][1:-1] if args[10] != 'nil' else None)
+                    #parse suffix
+                    if suffix:
+                        if suffix.startswith('DA'): #DAMAGE
+                            query.bindValue(":amount", int(args[i]))
+                            query.bindValue(":overkill",int(args[i+1]))
+                            query.bindValue(":school", int(args[i+2]))
+                            query.bindValue(":resisted", int(args[i+3]))
+                            query.bindValue(":blocked", int(args[i+4]))
+                            query.bindValue(":absorbed", int(args[i+5]))
+                            query.bindValue(":critical", 0 if args[i+6] == 'nil' else int(args[i+6]))
+                            query.bindValue(":glancing", 0 if args[i+7] == 'nil' else int(args[i+7]))
+                            query.bindValue(":crushing", 0 if args[i+8] == 'nil' else int(args[i+8]))
+                        elif suffix == 'HEAL': #HEAL
+                            query.bindValue(":amount", int(args[i]))
+                            query.bindValue(":overhealing", int(args[i+1]))
+                            query.bindValue(":absorbed", int(args[i+2]))
+                            query.bindValue(":critical", 0 if args[i+3] == 'nil' else int(args[i+3]))
+                        elif suffix[0] == 'A': #AURA_
+                            if suffix[-1] == 'E': #APPLIED_DOSE | REMOVED_DOSE
+                                query.bindValue(":auraType", args[i])
+                                query.bindValue(":amount", int(args[i+1]))
+                            elif suffix[-1] == 'L': #BROKEN_SPELL
+                                query.bindValue(":extraSpellID", int(args[i]))
+                                query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
+                                query.bindValue(":extraSchool", args[i+2])
+                                query.bindValue(":auraType", args[i+3])
+                            else: #APPLIED | REMOVED | REFRESH | BROKEN
+                                query.bindValue(":auraType", args[i])
+                        elif suffix.startswith('EN'): #ENERGIZE
+                            query.bindValue(":amount", int(args[i]))
+                            query.bindValue(":overEnergize", int(args[i+1]))
+                            #query.bindValue(":powerType", args[i+2])
+                            #looks like it's not needed in WotLK?
+                        elif suffix[0] == 'M': #MISSED
+                            query.bindValue(":missType", args[i])
+                            if args[i] == 'ABSORB':
+                                query.bindValue(":absorbed", args[i+1])
+                        elif suffix.startswith('DI'): #DISPEL(_)
+                            query.bindValue(":extraSpellID", int(args[i]))
+                            query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
+                            query.bindValue(":extraSchool", args[i+2])
+                            if suffix[-1] == 'L': #DISPEL vs DISPEL_FAILED
+                                query.bindValue(":auraType", args[i+3])
+                        elif suffix.startswith('INT'): #INTERRUPT
+                            query.bindValue(":extraSpellID", int(args[i]))
+                            query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
+                            query.bindValue(":extraSchool", args[i+2])
+                        elif suffix.startswith('ST'): #STOLEN
                             query.bindValue(":extraSpellID", int(args[i]))
                             query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
                             query.bindValue(":extraSchool", args[i+2])
                             query.bindValue(":auraType", args[i+3])
-                        else: #APPLIED | REMOVED | REFRESH | BROKEN
-                            query.bindValue(":auraType", args[i])
-                    elif suffix.startswith('EN'): #ENERGIZE
-                        query.bindValue(":amount", int(args[i]))
-                        query.bindValue(":overEnergize", int(args[i+1]))
-                        #query.bindValue(":powerType", args[i+2])
-                        #looks like it's not needed in WotLK?
-                    elif suffix[0] == 'M': #MISSED
-                        query.bindValue(":missType", args[i])
-                        query.bindValue(":absorbed", args[i+1])
-                    elif suffix.startswith('DI'): #DISPEL(_)
-                        query.bindValue(":extraSpellID", int(args[i]))
-                        query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
-                        query.bindValue(":extraSchool", args[i+2])
-                        if suffix[-1] == 'L': #DISPEL vs DISPEL_FAILED
-                            query.bindValue(":auraType", args[i+3])
-                    elif suffix.startswith('INT'): #INTERRUPT
-                        query.bindValue(":extraSpellID", int(args[i]))
-                        query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
-                        query.bindValue(":extraSchool", args[i+2])
-                    elif suffix.startswith('ST'): #STOLEN
-                        query.bindValue(":extraSpellID", int(args[i]))
-                        query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
-                        query.bindValue(":extraSchool", args[i+2])
-                        query.bindValue(":auraType", args[i+3])
-                    elif suffix in ('DRAIN', 'LEECH'):
-                        query.bindValue(":amount", int(args[i]))
-                        query.bindValue(":powerType", int(args[i+1]))
-                        query.bindValue(":extraAmount", int(args[i+2]))
-                    elif suffix.startswith('EX'): #EXTRA_ATTACKS
-                        query.bindValue(":amount", int(args[i]))
+                        elif suffix in ('DRAIN', 'LEECH'):
+                            query.bindValue(":amount", int(args[i]))
+                            query.bindValue(":powerType", int(args[i+1]))
+                            query.bindValue(":extraAmount", int(args[i+2]))
+                        elif suffix.startswith('EX'): #EXTRA_ATTACKS
+                            query.bindValue(":amount", int(args[i]))
+                except:
+                    print('Error on:',line_num,line)
+                    traceback.print_exc()
+
                 '''
                 if args[1] in ("ENCHANT_APPLIED", "ENCHANT_REMOVED"):
                     query.bindValue(":spellName", args[8][1:-1] if args[8] != 'nil' else None)
@@ -281,7 +289,7 @@ class parse:
         with open('queries/encounters.sql', 'r') as f:
             query.exec(f.read())
         getTime = QSqlQuery()
-        getTime.prepare("SELECT DISTINCT timestamp FROM events WHERE (sourceName = :unitName OR targetName = :unitName) AND eventName LIKE '%DAMAGE' OR eventName = 'UNIT_DIED'")
+        getTime.prepare("SELECT DISTINCT timestamp FROM events WHERE (sourceName = :unitName OR targetName = :unitName) AND (eventName LIKE '%DAMAGE' OR eventName = 'UNIT_DIED')")
         insertTime = QSqlQuery()
         insertTime.prepare("INSERT INTO encounters (unitGUID, enemy, timeStart, timeEnd, isKill) VALUES (:unitGUID, :enemy, :timeStart, :timeEnd, :isKill)")
         timediff = datetime.timedelta(seconds = 30)
@@ -355,6 +363,13 @@ class parse:
         while (tq.next()):
             print(tq.value(0), tq.value(1))
 
+    def populateAuras(self):
+        query = QSqlQuery()
+        query.exec('DROP TABLE auras')
+        with open('queries/auras.sql', 'r') as f:
+            query.exec(f.read())
+
+                
 
 if __name__ == "__main__":
     parse()
