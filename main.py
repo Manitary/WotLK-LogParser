@@ -4,7 +4,7 @@ from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt
 import zipfile, rarfile
-import parser, parser
+import parser, pet_recognition
 
 ALL = "AllUnits"
 FRIENDLY = "Friendlies"
@@ -21,13 +21,14 @@ class MainWindow(QMainWindow):
         self.initializeUI()
 
     def initializeUI(self):
-        self.setMinimumSize(450, 350)
+        self.setMinimumSize(600, 400)
         self.setWindowTitle("Parser")
         self.createActions()
         self.createMenu()
         self.centralWidget = QWidget()
         self.setCentralWidget(self.centralWidget)
         self.main_vbox = QVBoxLayout(self.centralWidget)
+        self.file_name = None
         self.show()
 
     def createActions(self):
@@ -37,6 +38,8 @@ class MainWindow(QMainWindow):
         self.parse_act.triggered.connect(self.parseFile)
         self.open_act = QAction("Open a parse")
         self.open_act.triggered.connect(self.openParse)
+        self.pet_pairing_act = QAction("Edit players' pets")
+        self.pet_pairing_act.triggered.connect(self.editPetsOwners)
 
     def createMenu(self):
         self.menuBar().setNativeMenuBar(False)
@@ -44,6 +47,8 @@ class MainWindow(QMainWindow):
         file_menu.addAction(self.open_act)
         file_menu.addAction(self.parse_act)
         #file_menu.addAction(self.quit_act)
+        tools_menu = self.menuBar().addMenu("Tools")
+        tools_menu.addAction(self.pet_pairing_act)
 
     def parseFile(self):
         file_name, _ = QFileDialog.getOpenFileName(self, "Select log file", "logs/", "Text Files (*.txt);; Archive (*.rar; *.zip)")
@@ -73,20 +78,22 @@ class MainWindow(QMainWindow):
         '''
 
     def openParse(self):
-        file_name, _ = QFileDialog.getOpenFileName(self, "Select parse", "parses/", "Databases (*.db)")
-        db = QSqlDatabase.addDatabase("QSQLITE")
-        db.setDatabaseName(file_name)
-        if not db.open():
-            print("Unable to open data source file.")
-            sys.exit(1) # Error code 1 - signifies error
-        tables_needed = {"events", "encounters", "actors"}
-        tables_not_found = tables_needed - set(db.tables())
-        if tables_not_found:
-            QMessageBox.critical(None, "Error", f"<p>The following tables are missing from the database: {tables_not_found}</p>")
-            sys.exit(1) # Error code 1 - signifies error
-        self.setUpMainWindow()
+        self.file_name, _ = QFileDialog.getOpenFileName(self, "Select parse", "parses/", "Databases (*.db)")
+        if self.file_name:
+            self.db = QSqlDatabase.addDatabase("QSQLITE")
+            self.db.setDatabaseName(self.file_name)
+            if not self.db.open():
+                print("Unable to open data source file.")
+                sys.exit(1) # Error code 1 - signifies error
+            tables_needed = {"events", "encounters", "actors"}
+            tables_not_found = tables_needed - set(self.db.tables())
+            if tables_not_found:
+                QMessageBox.critical(None, "Error", f"<p>The following tables are missing from the database: {tables_not_found}</p>")
+                sys.exit(1) # Error code 1 - signifies error
+            self.setUpMainWindow()
     
     def setUpMainWindow(self):
+        self.create_pet_editing_window = None
         self.encounter_select = QComboBox()
         self.main_vbox.addWidget(self.encounter_select)
         encounter_query = QSqlQuery()
@@ -251,7 +258,6 @@ class MainWindow(QMainWindow):
         else:
             self.source_select.setCurrentIndex(0)
         
-
     def updateUnitList(self):
         self.source_select.disconnect()
         self.target_select.disconnect()
@@ -319,6 +325,16 @@ class MainWindow(QMainWindow):
             self.source_select.setCurrentIndex(self.source_select.findText(item.siblingAtColumn(1).data()))
             self.source_select.currentTextChanged.connect(self.updateMainQuery)
             self.queryDeaths(ts)
+
+    def editPetsOwners(self, database = None):
+        if self.file_name:
+            if self.create_pet_editing_window:
+                self.create_pet_editing_window.show()
+            else:
+                self.create_pet_editing_window = pet_recognition.PetEditing(self)
+                self.create_pet_editing_window.show()
+            
+        
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
