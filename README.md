@@ -4,6 +4,10 @@ A personal mini-project to create a program to parse and view combat logs of Wor
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
+### 0.5.1
+New:
+* Added the possibility to manually (re)assign pets to an owner. Useful for named pets (Warlock, Hunter, Unholy DK) or for single-class temporary pets (e.g. Treants with a single Balance Druid among friendly units).
+
 ### 0.4.1
 New:
 * Added automatic coupling of pet <-> pet owner during parsing. It will not always work, for example with permanent pets that never interact with their owner (through buffs/heals) or with temporary pets for which the summon event is not registered in the combat log for any reason.
@@ -58,11 +62,11 @@ Functionalities:
 Upcoming tasks:
 * Add auras analysis (e.g. uptime)
 * Add absorb log
-* Add a graph for the currently selected meter
 * Add recognition of player classes
-* Add a widget to manually pair pet <-> owner - useful when automatic recognition is not possible (e.g. permanent pet never interacting with its owner)
+* Add a graph for the currently selected meter
 * Add bars on meters, display total and percentage on meters additionally to raw numbers
 * Improve detailed death log by including all events since the last time the unit was at full health (start of fight or latest overheal)
+* Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
 * Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
 * Beautify
 
@@ -84,7 +88,7 @@ Overall / player selection
 
 Damage breakdown
 
-![Damage breakdown](https://i.imgur.com/aPmSNZf.png)
+![Damage breakdown](https://i.imgur.com/NtfmOYG.png)
 
 Damage Taken breakdown
 
@@ -92,7 +96,7 @@ Damage Taken breakdown
 
 Healing breakdown
 
-![Healing breakdown](https://i.imgur.com/9YaiUOS.png)
+![Healing breakdown](https://i.imgur.com/T7SIqaL.png)
 
 Death log
 
@@ -101,3 +105,7 @@ Death log
 Death recap
 
 ![Death recap](https://i.imgur.com/5A4wv6b.png)
+
+Manual pet assignment
+
+![Manual pet assignment](https://i.imgur.com/YWHBwKF.png)
