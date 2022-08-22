@@ -220,7 +220,6 @@ class PetEditing(QDialog):
             else:
                 q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 GROUP BY unitName ORDER BY unitName")
         self.pet_selector.clear()
-        self.pet_selector.addItem('-', (None, None))
         while (q.next()):
             self.pet_selector.addItem(f"{q.value(0)}{f' ({q.value(1)})' if self.allGUID else ''}", (q.value(0), q.value(1)))
     
