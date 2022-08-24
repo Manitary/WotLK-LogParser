@@ -1,4 +1,3 @@
-from gettext import bind_textdomain_codeset
 from math import perm
 import sys, os, platform
 import re
@@ -9,10 +8,26 @@ from encounters import encounter_creature, creature_encounter
 from pet_recognition import permanent_pet_spells, temporary_pet_spells, pet_summon_pet
 import traceback
 
+SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
+APPLIED = 0
+REMOVED = 1
+REFRESH_START = 2
+REFRESH_END = 3
+
+def formatTimestamp(data):
+    ans = str(data)
+    if len(ans) > 23:
+        return ans[:-3]
+    elif len(ans) < 23:
+        return f"{ans}.000"
+    else:
+        return ans
+
 class parse:
     def __init__(self, sourceFile):
         super().__init__()
         self.sourceFile = sourceFile
+        print(sourceFile)
         self.duplicate = self.generateFileName()
         self.createConnection()
         if not self.duplicate:
@@ -20,9 +35,10 @@ class parse:
         #self.populateDB()
         #self.populateActors()
         #self.populateEncounters()
-        #self.testQueries()
         #self.assignPets()
+        #self.testQueries()
         #self.populateAuras()
+        self.db.close()
     
     def generateFileName(self):
         try:
@@ -40,9 +56,9 @@ class parse:
             return True
         
     def createConnection(self):
-        db = QSqlDatabase.addDatabase("QSQLITE")
-        db.setDatabaseName(f"parses/{self.parseFileName}.db")
-        if not db.open():
+        self.db = QSqlDatabase.addDatabase("QSQLITE")
+        self.db.setDatabaseName(f"parses/{self.parseFileName}.db")
+        if not self.db.open():
             print("Unable to open data source file.")
             sys.exit(1) # Error code 1 - signifies error
 
@@ -65,7 +81,8 @@ class parse:
                     if line_num % 10000 == 0:
                         print(line_num, time.time() - start)
                         start = time.time()
-                    query.bindValue(":timestamp", f"{self.year}-{args[0].replace('/', '-')}")
+                    ts = formatTimestamp(timeparse(f"{self.year}-{args[0].replace('/', '-')}"))
+                    query.bindValue(":timestamp", ts)
                     query.bindValue(":eventName", args[1])
                     query.bindValue(":sourceGUID", args[2])
                     query.bindValue(":sourceName", args[3][1:-1] if args[3] != 'nil' else None)
@@ -240,11 +257,6 @@ class parse:
 
     def testQueries(self):
         print('running test query')
-        query = QSqlQuery()
-        query.exec("SELECT * FROM events WHERE spellName = 'Hymn of Hope'")
-        print('test query done')
-        while (query.next()):
-            print([query.value(i) for i in range(30)])
 
     def populateActors(self):
         query = QSqlQuery()
@@ -364,13 +376,107 @@ class parse:
             print(tq.value(0), tq.value(1))
 
     def populateAuras(self):
-        query = QSqlQuery()
-        query.exec('DROP TABLE auras')
+        q = QSqlQuery()
+        q.exec('DROP TABLE auras')
         with open('queries/auras.sql', 'r') as f:
-            query.exec(f.read())
-
-                
+            q.exec(f.read())
+        q.prepare("ATTACH DATABASE :path AS spell_db")
+        q.bindValue(':path', SPELL_DATA_PATH)
+        q.exec()
+        auras = QSqlQuery()
+        auras.exec("SELECT DISTINCT sourceGUID, targetGUID, spellID, spellName, auraType FROM events WHERE eventName LIKE 'SPELL_AURA_%'")
+        find = QSqlQuery()
+        find.prepare("SELECT eventName, timestamp FROM events WHERE sourceGUID = :sourceGUID AND targetGUID = :targetGUID AND spellID = :spellID AND auraType = :auraType AND eventName LIKE 'SPELL_AURA_%' ORDER BY timestamp")
+        duration = QSqlQuery()
+        duration.prepare("SELECT duration FROM spell_db.spell_data WHERE spellID = :spellID")
+        new_aura = QSqlQuery()
+        new_aura.prepare("INSERT INTO auras (spellName, spellID, sourceGUID, targetGUID, auraType, timeStart, timeEnd, eventType) VALUES (:spellName, :spellID, :sourceGUID, :targetGUID, :auraType, :timeStart, :timeEnd, :eventType)")
+        try:
+            while auras.next():
+                sourceGUID, targetGUID, spellID, spellName, auraType = auras.value(0), auras.value(1), auras.value(2), auras.value(3), auras.value(4)
+                print(f"Current batch: {spellName} ({spellID}) - {sourceGUID} -> {targetGUID}")
+                duration.bindValue(':spellID', spellID)
+                duration.exec()
+                duration.next()
+                auraDuration = duration.value(0)
+                find.bindValue(':sourceGUID', sourceGUID)
+                find.bindValue(':targetGUID', targetGUID)
+                find.bindValue(':spellID', spellID)
+                find.bindValue(':auraType', auraType)
+                applied, refresh, removed = [], [], []
+                find.exec()
+                while find.next():
+                    if find.value(0) == 'SPELL_AURA_APPLIED':
+                        applied.append(find.value(1))
+                    elif find.value(0) == 'SPELL_AURA_REMOVED':
+                        removed.append(find.value(1))
+                    elif find.value(0).startswith('SPELL_AURA_REFRESH') or find.value(0).endswith('DOSE'):
+                        refresh.append(find.value(1))
+                data = []
+                while applied:
+                    start = applied.pop(0)
+                    search = True
+                    while search:
+                        candidates = (min((timeparse(x) for x in removed if x >= start), default = None), min((timeparse(x) for x in refresh if x >= start), default = None), (timeparse(start) + datetime.timedelta(milliseconds = auraDuration)) if auraDuration > 0 else None)
+                        end = min((x for x in candidates if x), default = None)
+                        if end:
+                            idx = candidates.index(end)
+                            end = formatTimestamp(end)
+                            if idx == 0:
+                                removed.remove(end)
+                                search = False
+                            elif idx == 1:
+                                refresh.remove(end)
+                            else:
+                                search = False
+                        else:
+                            search = False
+                        data.append((start, end, APPLIED))
+                        start = end
+                while refresh:
+                    start = refresh.pop(0)
+                    search = True
+                    candidates = (max((timeparse(x[1]) for x in data if x[1] and x[1] <= start), default = None), (timeparse(start) - datetime.timedelta(milliseconds = auraDuration)) if auraDuration > 0 else None)
+                    candidate = max((x for x in candidates if x), default = None)
+                    candidate = formatTimestamp(candidate) if candidate else None
+                    data.append((candidate, start, REFRESH_END))
+                    while search:
+                        candidates = (min((timeparse(x) for x in removed if x >= start), default = None), min((timeparse(x) for x in refresh if x >= start), default = None), (timeparse(start) + datetime.timedelta(milliseconds = auraDuration)) if auraDuration > 0 else None)
+                        end = min((x for x in candidates if x), default = None)
+                        if end:
+                            idx = candidates.index(end)
+                            end = formatTimestamp(end)
+                            if idx == 0:
+                                removed.remove(end)
+                                search = False
+                            elif idx == 1:
+                                refresh.remove(end)
+                            else:
+                                search = False
+                        else:
+                            search = False
+                        data.append((start, end, REFRESH_START))
+                        start = end
+                while removed:
+                    end = removed.pop(0)
+                    candidates = (max((timeparse(x[1]) for x in data if x[1] and x[1] <= end), default = None), (timeparse(end) - datetime.timedelta(milliseconds = auraDuration)) if auraDuration > 0 else None)
+                    candidate = max((x for x in candidates if x), default = None)
+                    candidate = formatTimestamp(candidate) if candidate else None
+                    data.append((candidate, end, REMOVED))
+                new_aura.bindValue(':spellName', spellName)
+                new_aura.bindValue(':spellID', spellID)
+                new_aura.bindValue(':sourceGUID', sourceGUID)
+                new_aura.bindValue(':targetGUID', targetGUID)
+                new_aura.bindValue(':auraType', auraType)
+                for x in data:
+                    new_aura.bindValue(':timestart', x[0])
+                    new_aura.bindValue(':timeEnd', x[1])
+                    new_aura.bindValue(':eventType', x[2])
+                    new_aura.exec()
+        except:
+            print(f"Current batch: {spellName} - {sourceGUID} -> {targetGUID}")
+            traceback.print_exc()
 
 if __name__ == "__main__":
-    parse()
+    parse('C:\\Users\\Manitary\\WotLK-LogParser\\logs\\WoWCombatLog.txt')
     sys.exit(0)
