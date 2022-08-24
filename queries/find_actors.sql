@@ -3,6 +3,7 @@ SELECT
     , actors.isPlayer
     , actors.isPet
     , actors.isNPC
+    , actors.unitGUID
 FROM
     (
         SELECT

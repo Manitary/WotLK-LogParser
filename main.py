@@ -171,7 +171,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/damage_done_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentData())
+                    display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":affiliation", self.source_affiliation)
         else:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
@@ -180,8 +180,8 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/damage_done_1-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentData())
-            display_query.bindValue(":sourceName", self.source_select.currentData())
+                    display_query.bindValue(":targetName", self.target_select.currentText())
+            display_query.bindValue(":sourceName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
@@ -196,7 +196,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/damage_taken_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":sourceName", self.target_select.currentData())
+                    display_query.bindValue(":sourceName", self.target_select.currentText())
             display_query.bindValue(":affiliation", self.source_affiliation)
         else:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
@@ -205,8 +205,8 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/damage_taken_1-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":sourceName", self.target_select.currentData())
-            display_query.bindValue(":targetName", self.source_select.currentData())
+                    display_query.bindValue(":sourceName", self.target_select.currentText())
+            display_query.bindValue(":targetName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
@@ -221,7 +221,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/healing_done_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentData())
+                    display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":affiliation", self.source_affiliation)
         else:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
@@ -230,8 +230,8 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/healing_done_1-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentData())
-            display_query.bindValue(":sourceName", self.source_select.currentData())
+                    display_query.bindValue(":targetName", self.target_select.currentText())
+            display_query.bindValue(":sourceName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
@@ -242,7 +242,7 @@ class MainWindow(QMainWindow):
         if timestamp:
             with open('queries/deaths_1.sql', 'r') as f:
                 display_query.prepare(f.read())
-            display_query.bindValue(":targetName", self.source_select.currentData())
+            display_query.bindValue(":targetName", self.source_select.currentText())
             display_query.bindValue(":endTime", timestamp)
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
@@ -280,9 +280,9 @@ class MainWindow(QMainWindow):
         while (unit_query.next()):
             #Take into account mind controlled NPC as friendly (isPet = 1, isNPC = 1)
             if unit_query.value(1) == self.source_affiliation or unit_query.value(3) == 1 - self.source_affiliation or (unit_query.value(2) and self.source_affiliation):
-                self.source_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(0))
+                self.source_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(4))
             if unit_query.value(1) == self.target_affiliation or unit_query.value(3) == 1 - self.target_affiliation or (unit_query.value(2) and self.target_affiliation):
-                self.target_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(0))
+                self.target_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(4))
         self.source_select.currentTextChanged.connect(self.updateMainQuery)
         self.target_select.currentTextChanged.connect(self.updateMainQuery)
         if self.source_current:
