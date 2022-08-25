@@ -1,9 +1,11 @@
 import sys
+from turtle import width
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
-from PyQt6.QtCore import Qt
-from tools import flattenIntervals
+from PyQt6.QtCore import Qt, QTime
+import pyqtgraph as pg
+from tools import flattenIntervals, plotAuras
 import time, datetime
 from dateutil.parser import parse as timeparse
 import zipfile, rarfile
@@ -140,6 +142,9 @@ class MainWindow(QMainWindow):
         self.actors_hbox.addWidget(self.target_clear_button)
         self.main_vbox.addLayout(self.actors_hbox)
 
+        self.graph = pg.PlotWidget()
+        self.main_vbox.addWidget(self.graph)
+
         self.model = QSqlTableModel()
         self.table = QTableView()
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
@@ -154,6 +159,7 @@ class MainWindow(QMainWindow):
 
     def updateMainQuery(self):
         meter = self.meter_select.currentText()
+        self.graph.hide()
         if meter == DAMAGEDONE:
             self.queryDamageDone()
         elif meter == DAMAGETAKEN:
@@ -267,42 +273,38 @@ class MainWindow(QMainWindow):
 
     def queryBuffs(self):
         q = QSqlQuery()
-        q.exec("WITH temptable(id) AS (SELECT 1) SELECT id FROM temptable")
-        while q.next():
-            print(q.value(0))
         with open('queries/buffs_taken_1-all.sql', 'r') as f:
             q.prepare(f.read())
         q.bindValue(":startTime", self.encounter_select.currentData()[0])
         q.bindValue(":endTime", self.encounter_select.currentData()[1])
         q.bindValue(":targetGUID", self.source_select.currentData())
         q.exec()
-        buffs = {}
+        self.auras_current = {}
         while q.next():
-            if q.value(1) not in buffs:
-                buffs[q.value(1)] = {'spellName': q.value(0), 'intervals': []}
-            buffs[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
+            if q.value(1) not in self.auras_current:
+                self.auras_current[q.value(1)] = {'spellName': q.value(0), 'intervals': []}
+            self.auras_current[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
         encounter_length = timeparse(self.encounter_select.currentData()[1]) - timeparse(self.encounter_select.currentData()[0])
-        print(encounter_length)
         q.exec("DROP TABLE IF EXISTS temp_buff")
         q.exec("CREATE TEMP TABLE temp_buff (spellID MEDIUMINT UNSIGNED UNIQUE NOT NULL, spellName VARCHAR(50), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT)")
         q.prepare("INSERT INTO temp_buff (spellID, spellName, count, uptime, uptimepct) VALUES (:spellID, :spellName, :count, :uptime, :uptimepct)")
-        for k in buffs:
-            buffs[k]['count'] = len(buffs[k]['intervals'])
-            buffs[k]['intervals'] = flattenIntervals(buffs[k]['intervals'])
+        for k in self.auras_current:
+            self.auras_current[k]['count'] = len(self.auras_current[k]['intervals'])
+            self.auras_current[k]['intervals'] = flattenIntervals(self.auras_current[k]['intervals'])
             uptime = datetime.timedelta()
-            for x in buffs[k]['intervals']:
+            for x in self.auras_current[k]['intervals']:
                 uptime += timeparse(x[1]) - timeparse(x[0])
-            buffs[k]['uptime'] = uptime
-            buffs[k]['uptimepct'] = uptime / encounter_length * 100
+            self.auras_current[k]['uptime'] = uptime
+            self.auras_current[k]['uptimepct'] = uptime / encounter_length * 100
             q.bindValue(':spellID', k)
-            q.bindValue(':spellName', buffs[k]['spellName'])
-            q.bindValue(':count', buffs[k]['count'])
-            q.bindValue(':uptime', str(buffs[k]['uptime']))
-            q.bindValue(':uptimepct', buffs[k]['uptimepct'])
+            q.bindValue(':spellName', self.auras_current[k]['spellName'])
+            q.bindValue(':count', self.auras_current[k]['count'])
+            q.bindValue(':uptime', str(self.auras_current[k]['uptime']))
+            q.bindValue(':uptimepct', self.auras_current[k]['uptimepct'])
             q.exec()
         display_query = QSqlQuery()
-        display_query.exec("SELECT spellName, uptimepct, uptime, count FROM temp_buff ORDER BY uptimepct DESC")
-        self.model.setQuery(display_query)        
+        display_query.exec("SELECT spellName, uptimepct, uptime, count, spellID FROM temp_buff ORDER BY uptimepct DESC")
+        self.model.setQuery(display_query)
 
     def updateUnitList(self):
         self.source_select.disconnect()
@@ -371,6 +373,19 @@ class MainWindow(QMainWindow):
             self.source_select.setCurrentIndex(self.source_select.findText(item.siblingAtColumn(1).data()))
             self.source_select.currentTextChanged.connect(self.updateMainQuery)
             self.queryDeaths(ts)
+        elif self.meter_select.currentText() == BUFFS:
+            self.plotAuraGraph(item.siblingAtColumn(4).data())
+    
+    def plotAuraGraph(self, spellID):
+        x0, x1, x_Left, x_Width = plotAuras(self.encounter_select.currentData()[0], self.encounter_select.currentData()[1], self.auras_current[spellID]['intervals'])
+        self.graph.clear()
+        self.graph.setMaximumHeight(100)
+        self.graph.setXRange(x0, x1)
+        self.graph.setYRange(0, 1)
+        
+        self.graph.addItem(pg.BarGraphItem(x = x_Left, width = x_Width, height = 1))
+        self.graph.show()
+
 
     def editPetsOwners(self, database = None):
         if self.file_name:
@@ -380,7 +395,15 @@ class MainWindow(QMainWindow):
                 self.create_pet_editing_window = pet_recognition.PetEditing(self)
                 self.create_pet_editing_window.show()
             
-        
+
+class TimeAxisItem(pg.AxisItem):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+    def tickStrings(self, values, scale, spacing):
+        return [QTime().addMSecs(value).toString('mm:ss') for value in values]
+
+
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
