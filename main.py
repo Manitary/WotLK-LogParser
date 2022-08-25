@@ -386,7 +386,6 @@ class MainWindow(QMainWindow):
         self.graph.addItem(pg.BarGraphItem(x = x_Left, width = x_Width, height = 1))
         self.graph.show()
 
-
     def editPetsOwners(self, database = None):
         if self.file_name:
             if self.create_pet_editing_window:
