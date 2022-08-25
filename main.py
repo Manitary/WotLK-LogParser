@@ -3,6 +3,9 @@ from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, Q
 from PyQt6.QtGui import QAction, QFont
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt
+from tools import flattenIntervals
+import time, datetime
+from dateutil.parser import parse as timeparse
 import zipfile, rarfile
 import parser, pet_recognition
 
@@ -14,6 +17,9 @@ DAMAGEDONE = "Damage Done"
 DAMAGETAKEN = "Damage Taken"
 HEALING = "Healing"
 DEATHS = "Deaths"
+BUFFS = "Buffs"
+DEBUFFS = "Debuffs"
+METERS = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS, BUFFS, DEBUFFS]
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -105,8 +111,7 @@ class MainWindow(QMainWindow):
 
         self.meter_select = QComboBox()
         self.main_vbox.addWidget(self.meter_select)
-        meters = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS]
-        self.meter_select.addItems(meters)
+        self.meter_select.addItems(METERS)
         self.meter_select.currentTextChanged.connect(self.updateUnitList)
 
         self.source_select = QComboBox()
@@ -157,6 +162,8 @@ class MainWindow(QMainWindow):
             self.queryHealing()
         elif meter == DEATHS:
             self.queryDeaths()
+        elif meter == BUFFS:
+            self.queryBuffs()
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
@@ -257,7 +264,46 @@ class MainWindow(QMainWindow):
             self.model.setQuery(display_query)
         else:
             self.source_select.setCurrentIndex(0)
-        
+
+    def queryBuffs(self):
+        q = QSqlQuery()
+        q.exec("WITH temptable(id) AS (SELECT 1) SELECT id FROM temptable")
+        while q.next():
+            print(q.value(0))
+        with open('queries/buffs_taken_1-all.sql', 'r') as f:
+            q.prepare(f.read())
+        q.bindValue(":startTime", self.encounter_select.currentData()[0])
+        q.bindValue(":endTime", self.encounter_select.currentData()[1])
+        q.bindValue(":targetGUID", self.source_select.currentData())
+        q.exec()
+        buffs = {}
+        while q.next():
+            if q.value(1) not in buffs:
+                buffs[q.value(1)] = {'spellName': q.value(0), 'intervals': []}
+            buffs[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
+        encounter_length = timeparse(self.encounter_select.currentData()[1]) - timeparse(self.encounter_select.currentData()[0])
+        print(encounter_length)
+        q.exec("DROP TABLE IF EXISTS temp_buff")
+        q.exec("CREATE TEMP TABLE temp_buff (spellID MEDIUMINT UNSIGNED UNIQUE NOT NULL, spellName VARCHAR(50), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT)")
+        q.prepare("INSERT INTO temp_buff (spellID, spellName, count, uptime, uptimepct) VALUES (:spellID, :spellName, :count, :uptime, :uptimepct)")
+        for k in buffs:
+            buffs[k]['count'] = len(buffs[k]['intervals'])
+            buffs[k]['intervals'] = flattenIntervals(buffs[k]['intervals'])
+            uptime = datetime.timedelta()
+            for x in buffs[k]['intervals']:
+                uptime += timeparse(x[1]) - timeparse(x[0])
+            buffs[k]['uptime'] = uptime
+            buffs[k]['uptimepct'] = uptime / encounter_length * 100
+            q.bindValue(':spellID', k)
+            q.bindValue(':spellName', buffs[k]['spellName'])
+            q.bindValue(':count', buffs[k]['count'])
+            q.bindValue(':uptime', str(buffs[k]['uptime']))
+            q.bindValue(':uptimepct', buffs[k]['uptimepct'])
+            q.exec()
+        display_query = QSqlQuery()
+        display_query.exec("SELECT spellName, uptimepct, uptime, count FROM temp_buff ORDER BY uptimepct DESC")
+        self.model.setQuery(display_query)        
+
     def updateUnitList(self):
         self.source_select.disconnect()
         self.target_select.disconnect()

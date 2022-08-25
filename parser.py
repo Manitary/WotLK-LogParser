@@ -469,7 +469,7 @@ class parse:
                 new_aura.bindValue(':targetGUID', targetGUID)
                 new_aura.bindValue(':auraType', auraType)
                 for x in data:
-                    new_aura.bindValue(':timestart', x[0])
+                    new_aura.bindValue(':timeStart', x[0])
                     new_aura.bindValue(':timeEnd', x[1])
                     new_aura.bindValue(':eventType', x[2])
                     new_aura.exec()
