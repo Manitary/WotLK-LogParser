@@ -1,8 +1,82 @@
-## WotLK-LogParser
+# WotLK-LogParser
 
 A personal mini-project to create a program to parse and view combat logs of World of Warcraft WotLK locally.
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
+
+## 0.5.2
+New:
+* Added buff uptime tracking, and a simple uptime graph. Has some limitations mostly due to how the Combat Log works.
+
+Tweaks:
+* Death recap: now it shows all possibly relevant events since the unit was at full HP (last overhealing received / beginning of the encounter).
+* Death recap: Improved readability of damage/healing information.
+
+Bugfix:
+* Fixed an issue with encounter parsing.
+
+----
+
+## Known issues:
+
+* Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
+* Parsing is very slow (1M entries take 30+ minutes)
+* Aura tracking may be inaccurate, possibly due to bugs, but mostly due to how poor the Combat Log is in this regard.
+* Encounter parsing has some issues, like deciding wipe/kill on multi-target fights (e.g. The Four Horsemen), or bosses with 'immune' phases (e.g. Noth the Plaguebringer)
+
+----
+
+## Upcoming features (hopefully)
+
+* Improve auras analysis (e.g. uptime)
+* Improve encounter parsing
+* Add absorb log
+* Add recognition of player classes
+* Add a graph for the currently selected meter
+* Add bars on meters, display total and percentage on meters additionally to raw numbers
+* Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
+* Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
+* Beautify
+
+----
+
+## Example pictures:
+
+Encounter selection
+
+![Encounter selection](https://i.imgur.com/zCeNXpq.png)
+
+Overall / player selection
+
+![Overall / player selection](https://i.imgur.com/DrPTkjl.png)
+
+Damage breakdown
+
+![Damage breakdown](https://i.imgur.com/NtfmOYG.png)
+
+Damage Taken breakdown
+
+![Damage Taken breakdown](https://i.imgur.com/9JswaVI.png)
+
+Healing breakdown
+
+![Healing breakdown](https://i.imgur.com/T7SIqaL.png)
+
+Death log
+
+![Death log](https://i.imgur.com/4tavP9Q.png)
+
+Death recap
+
+![Death recap](https://i.imgur.com/3LA9g4A.png)
+
+Manual pet assignment
+
+![Manual pet assignment](https://i.imgur.com/YWHBwKF.png)
+
+----
+
+## Past versions
 
 ### 0.5.1
 New:
@@ -55,57 +129,3 @@ Functionalities:
 * Parse a WoWCombatLog.txt file into a usable database for quick data retrieval. This includes computing supplementary information, like identifying player- and server-controlled entities, establishing start/end time of boss encounters (in WotLK there is no event API for it), etc.
 * Visualise the damage meter of a pre-parsed log. Currently limited to selecting an encounter, and displaying either the damage meter of the raid or the damage breakdown of a selected friendly unit (players and pets are currently decoupled).
 
-----
-
-## To do (hopefully)
-
-Upcoming tasks:
-* Add auras analysis (e.g. uptime)
-* Add absorb log
-* Add recognition of player classes
-* Add a graph for the currently selected meter
-* Add bars on meters, display total and percentage on meters additionally to raw numbers
-* Improve detailed death log by including all events since the last time the unit was at full health (start of fight or latest overheal)
-* Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
-* Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
-* Beautify
-
-Known issues:
-* Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
-* Parsing is very slow (1M entries take 30+ minutes)
-
-----
-
-## Example pictures:
-
-Encounter selection
-
-![Encounter selection](https://i.imgur.com/zCeNXpq.png)
-
-Overall / player selection
-
-![Overall / player selection](https://i.imgur.com/DrPTkjl.png)
-
-Damage breakdown
-
-![Damage breakdown](https://i.imgur.com/NtfmOYG.png)
-
-Damage Taken breakdown
-
-![Damage Taken breakdown](https://i.imgur.com/9JswaVI.png)
-
-Healing breakdown
-
-![Healing breakdown](https://i.imgur.com/T7SIqaL.png)
-
-Death log
-
-![Death log](https://i.imgur.com/4tavP9Q.png)
-
-Death recap
-
-![Death recap](https://i.imgur.com/5A4wv6b.png)
-
-Manual pet assignment
-
-![Manual pet assignment](https://i.imgur.com/YWHBwKF.png)
