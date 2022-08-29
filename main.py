@@ -1,7 +1,6 @@
-import sys
-from turtle import width
+import sys, os
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy
-from PyQt6.QtGui import QAction, QFont
+from PyQt6.QtGui import QAction, QFont, QPixmap
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt, QTime
 import pyqtgraph as pg
@@ -22,6 +21,12 @@ DEATHS = "Deaths"
 BUFFS = "Buffs"
 DEBUFFS = "Debuffs"
 METERS = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS, BUFFS, DEBUFFS]
+SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
+ICON_COL = {
+    DAMAGEDONE: {'all': 4, 'unit': 9},
+    DAMAGETAKEN: {'all': 5, 'unit': 8},
+    HEALING: {'all': 6, 'unit': 6},
+}
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -92,15 +97,16 @@ class MainWindow(QMainWindow):
             self.db.setDatabaseName(self.file_name)
             if not self.db.open():
                 print("Unable to open data source file.")
-                sys.exit(1) # Error code 1 - signifies error
+                sys.exit(1)
             tables_needed = {"events", "encounters", "actors"}
             tables_not_found = tables_needed - set(self.db.tables())
             if tables_not_found:
                 QMessageBox.critical(None, "Error", f"<p>The following tables are missing from the database: {tables_not_found}</p>")
-                sys.exit(1) # Error code 1 - signifies error
+                sys.exit(1)
             self.setUpMainWindow()
     
     def setUpMainWindow(self):
+        QSqlQuery(f"ATTACH DATABASE '{SPELL_DATA_PATH}' AS spell_db").exec()
         self.create_pet_editing_window = None
         self.encounter_select = QComboBox()
         self.main_vbox.addWidget(self.encounter_select)
@@ -149,9 +155,7 @@ class MainWindow(QMainWindow):
         self.table = QTableView()
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.clicked.connect(self.tableClicked)
-        self.table.setModel(self.model)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        self.model.select()
         self.main_vbox.addWidget(self.table)
 
         self.updateUnitList()
@@ -160,12 +164,13 @@ class MainWindow(QMainWindow):
     def updateMainQuery(self):
         meter = self.meter_select.currentText()
         self.graph.hide()
+        self.table.setModel(self.model)
         if meter == DAMAGEDONE:
-            self.queryDamageDone()
+            self.queryDamageDone(meter)
         elif meter == DAMAGETAKEN:
-            self.queryDamageTaken()
+            self.queryDamageTaken(meter)
         elif meter == HEALING:
-            self.queryHealing()
+            self.queryHealing(meter)
         elif meter == DEATHS:
             self.queryDeaths()
         elif meter == BUFFS:
@@ -175,9 +180,10 @@ class MainWindow(QMainWindow):
             self.model.setQuery(self.display_query)
         print('query done')
 
-    def queryDamageDone(self):
+    def queryDamageDone(self, meter):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+        if everyone:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_done_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
@@ -198,11 +204,14 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
-        self.model.setQuery(display_query)
+        self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
+        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'])
+        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'] + 1)
 
-    def queryDamageTaken(self):
+    def queryDamageTaken(self, meter):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+        if everyone:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_taken_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
@@ -223,11 +232,14 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
-        self.model.setQuery(display_query)
+        self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
+        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'])
+        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'] + 1)
 
-    def queryHealing(self):
+    def queryHealing(self, meter):
         display_query = QSqlQuery()
-        if self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+        if everyone:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
                 with open('queries/healing_done_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
@@ -248,7 +260,9 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
-        self.model.setQuery(display_query)
+        self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
+        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'])
+        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'] + 1)
 
     def queryDeaths(self, timestamp = None):
         display_query = QSqlQuery()
@@ -277,7 +291,7 @@ class MainWindow(QMainWindow):
             q.prepare(f.read())
         q.bindValue(":startTime", self.encounter_select.currentData()[0])
         q.bindValue(":endTime", self.encounter_select.currentData()[1])
-        q.bindValue(":targetGUID", self.source_select.currentData())
+        q.bindValue(":targetGUID", self.source_select.currentData()[1])
         q.exec()
         self.auras_current = {}
         while q.next():
@@ -328,9 +342,9 @@ class MainWindow(QMainWindow):
         while (unit_query.next()):
             #Take into account mind controlled NPC as friendly (isPet = 1, isNPC = 1)
             if unit_query.value(1) == self.source_affiliation or unit_query.value(3) == 1 - self.source_affiliation or (unit_query.value(2) and self.source_affiliation):
-                self.source_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(4))
+                self.source_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", (unit_query.value(0), unit_query.value(4)))
             if unit_query.value(1) == self.target_affiliation or unit_query.value(3) == 1 - self.target_affiliation or (unit_query.value(2) and self.target_affiliation):
-                self.target_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", unit_query.value(4))
+                self.target_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", (unit_query.value(0), unit_query.value(4)))
         self.source_select.currentTextChanged.connect(self.updateMainQuery)
         self.target_select.currentTextChanged.connect(self.updateMainQuery)
         if self.source_current:
@@ -393,16 +407,26 @@ class MainWindow(QMainWindow):
             else:
                 self.create_pet_editing_window = pet_recognition.PetEditing(self)
                 self.create_pet_editing_window.show()
-            
 
-class TimeAxisItem(pg.AxisItem):
-    def __init__(self, *args, **kwargs):
+class meterSqlTableModel(QSqlTableModel):
+    def __init__(self, query, meter, everyone, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.hide = -1
+        self.path = lambda x: None
+        if meter in ICON_COL:
+            self.hide = ICON_COL[meter]['all' if everyone else 'unit']
+        if everyone:
+            self.path = lambda icon: f"wow_hero_classes/{icon}.png"
+        else:
+            self.path = lambda icon: f"wow_icon/{icon.lower()}.jpg"
+        self.setQuery(query)
 
-    def tickStrings(self, values, scale, spacing):
-        return [QTime().addMSecs(value).toString('mm:ss') for value in values]
-
-
+    def data(self, index, role = Qt.ItemDataRole.DisplayRole):
+        if index.column() == 0 and role == Qt.ItemDataRole.DecorationRole:
+            icon = QSqlTableModel.data(self, index.siblingAtColumn(self.hide), Qt.ItemDataRole.DisplayRole)
+            if icon:
+                return QPixmap(self.path(icon)).scaledToHeight(25)
+        return QSqlTableModel.data(self, index, role)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
