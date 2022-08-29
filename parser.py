@@ -6,6 +6,7 @@ import time, datetime
 from dateutil.parser import parse as timeparse
 from encounters import encounter_creature, creature_encounter
 from pet_recognition import permanent_pet_spells, temporary_pet_spells, pet_summon_pet
+import class_recognition
 import traceback
 
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
@@ -38,6 +39,7 @@ class parse:
         #self.assignPets()
         #self.testQueries()
         #self.populateAuras()
+        #self.assignSpecs()
         self.db.close()
     
     def generateFileName(self):
@@ -374,6 +376,47 @@ class parse:
         tq.exec('SELECT ownerName, petName FROM pets GROUP BY ownerName, petName')
         while (tq.next()):
             print(tq.value(0), tq.value(1))
+
+    def assignSpecs(self):
+        print('test')
+
+        query = QSqlQuery()
+        query.exec('DROP TABLE specs')
+        with open('queries/specs.sql', 'r') as f:
+            query.exec(f.read())
+
+        getSpec = QSqlQuery()
+        getSpec.prepare("INSERT INTO specs (unitGUID, timestamp, spec) VALUES (:unitGUID, :timestamp, :spec)")
+
+        getEncounters = QSqlQuery()
+        getEncounters.exec("SELECT timeStart, timeEnd, enemy FROM encounters")
+
+        getPlayerSpells = QSqlQuery()
+        getPlayerSpells.prepare("SELECT timestamp, sourceGUID, spellID, sourceName, spellName FROM events JOIN actors ON events.sourceGUID = actors.unitGUID WHERE timestamp >= :timeStart AND timestamp <= :timeEnd AND (isPlayer = 1 or isPet = 1) AND spellID IS NOT NULL GROUP BY sourceGUID, spellID")
+
+        while getEncounters.next():
+            print('new boss')
+            enemy = getEncounters.value(2)
+            timeStart = getEncounters.value(0)
+            timeEnd = getEncounters.value(1)
+            getPlayerSpells.bindValue(':timeStart', timeStart)
+            getPlayerSpells.bindValue(':timeEnd', timeEnd)
+            getPlayerSpells.exec()
+            while getPlayerSpells.next():
+                sourceGUID = getPlayerSpells.value(1)
+                spellID = getPlayerSpells.value(2)
+                if spellID in class_recognition.spell_spec:
+                    print(enemy, getPlayerSpells.value(3), getPlayerSpells.value(4))
+                    getSpec.bindValue(':unitGUID', sourceGUID)
+                    getSpec.bindValue(':timestamp', timeStart)
+                    getSpec.bindValue(':spec', f"{class_recognition.spell_spec[spellID]['class']}-{class_recognition.spell_spec[spellID]['spec']}")
+                    getSpec.exec()
+
+        test = QSqlQuery()
+        test.exec('SELECT actors.unitName, specs.spec, encounters.enemy FROM specs JOIN actors ON specs.unitGUID = actors.unitGUID JOIN encounters ON specs.timestamp = encounters.timestart')
+        #test.exec('SELECT * FROM specs')
+        while test.next():
+            print(test.value(0), test.value(1), test.value(2), test.value(3))
 
     def populateAuras(self):
         q = QSqlQuery()
