@@ -4,16 +4,11 @@ A personal mini-project to create a program to parse and view combat logs of Wor
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
-## 0.5.2
+## 0.5.3
 New:
-* Added buff uptime tracking, and a simple uptime graph. Has some limitations mostly due to how the Combat Log works.
-
-Tweaks:
-* Death recap: now it shows all possibly relevant events since the unit was at full HP (last overhealing received / beginning of the encounter).
-* Death recap: Improved readability of damage/healing information.
-
-Bugfix:
-* Fixed an issue with encounter parsing.
+* Added spec tracking, for each encounter
+* Added spec/spell icon on meters/breakdown
+* Improved visual display of meters/breakdown
 
 ----
 
@@ -31,12 +26,11 @@ Bugfix:
 * Improve auras analysis (e.g. uptime)
 * Improve encounter parsing
 * Add absorb log
-* Add recognition of player classes
 * Add a graph for the currently selected meter
 * Add bars on meters, display total and percentage on meters additionally to raw numbers
 * Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
 * Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
-* Beautify
+* Beautify more
 
 ----
 
@@ -46,21 +40,25 @@ Encounter selection
 
 ![Encounter selection](https://i.imgur.com/zCeNXpq.png)
 
-Overall / player selection
+Damage meter
 
-![Overall / player selection](https://i.imgur.com/DrPTkjl.png)
+![Damage meter](https://i.imgur.com/fmiLX9w.png)
 
 Damage breakdown
 
-![Damage breakdown](https://i.imgur.com/NtfmOYG.png)
+![Damage breakdown](https://i.imgur.com/AKNkrof.png)
 
 Damage Taken breakdown
 
-![Damage Taken breakdown](https://i.imgur.com/9JswaVI.png)
+![Damage Taken breakdown](https://i.imgur.com/aWYG4ue.png)
+
+Healing Meter
+
+![Healing Meter](https://i.imgur.com/Yaisiid.png)
 
 Healing breakdown
 
-![Healing breakdown](https://i.imgur.com/T7SIqaL.png)
+![Healing breakdown](https://i.imgur.com/jIKbrsQ.png)
 
 Death log
 
@@ -77,6 +75,17 @@ Manual pet assignment
 ----
 
 ## Past versions
+
+### 0.5.2
+New:
+* Added buff uptime tracking, and a simple uptime graph. Has some limitations mostly due to how the Combat Log works.
+
+Tweaks:
+* Death recap: now it shows all possibly relevant events since the unit was at full HP (last overhealing received / beginning of the encounter).
+* Death recap: Improved readability of damage/healing information.
+
+Bugfix:
+* Fixed an issue with encounter parsing.
 
 ### 0.5.1
 New:
