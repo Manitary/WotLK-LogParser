@@ -6,10 +6,9 @@ __pycache__/
 # Huge files and/or currently unused files
 backups/
 data/
+!data/spell_data.db
 logs/*.txt
 parses/
 !parses/.gitkeep 
 sandbox/
-wow_hero_classes/
-wow_icon/
 flag_info.txt
