@@ -33,7 +33,7 @@ class parse:
         self.createConnection()
         if not self.duplicate:
             self.populateDB()
-        #self.populateDB()
+        self.populateDB()
         #self.populateActors()
         #self.populateEncounters()
         #self.assignPets()
@@ -99,24 +99,24 @@ class parse:
                         suffix = args[1][6:]
                         query.bindValue(":spellID", int(args[8]))
                         query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
-                        query.bindValue(":spellSchool", args[10])
+                        query.bindValue(":spellSchool", int(args[10], 16))
                         i += 3
                         if suffix[0] == 'P' or suffix[0] == 'B': #PERIODIC_ | BUILDING_
                             suffix = suffix[9:]
                     elif args[1].startswith('SW'): #SWING_
                         suffix = args[1][6:]
                         query.bindValue(":spellName", 'MeleeSwing')
-                        query.bindValue(":spellSchool", '0x1')
+                        query.bindValue(":spellSchool", 1)
                     elif args[1][0] == 'R': #RANGE_
                         suffix = args[1][6:]
                         query.bindValue(":spellID", int(args[8]))
                         query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
-                        query.bindValue(":spellSchool", args[10])
+                        query.bindValue(":spellSchool", int(args[10], 16))
                         i += 3
                     elif args[1][0] == 'D': #DAMAGE_
                         query.bindValue(":spellID", int(args[8]))
                         query.bindValue(":spellName", args[9][1:-1] if args[9] != 'nil' else None)
-                        query.bindValue(":spellSchool", args[10])
+                        query.bindValue(":spellSchool", int(args[10], 16))
                         i += 3
                         if args[1].endswith('ED'): #DAMAGE_SHIELD_MISSED
                             suffix = 'MISSED'
@@ -170,7 +170,7 @@ class parse:
                         elif suffix.startswith('DI'): #DISPEL(_)
                             query.bindValue(":extraSpellID", int(args[i]))
                             query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
-                            query.bindValue(":extraSchool", args[i+2])
+                            query.bindValue(":extraSchool", int(args[i+2]))
                             if suffix[-1] == 'L': #DISPEL vs DISPEL_FAILED
                                 query.bindValue(":auraType", args[i+3])
                         elif suffix.startswith('INT'): #INTERRUPT

@@ -1,7 +1,4 @@
-from re import M
-
-
-DK = 'c6'
+DEATHKNIGHT = 'c6'
 DRUID = 'c11'
 HUNTER = 'c3'
 MAGE = 'c8'
@@ -18,55 +15,68 @@ SUMMON = 'SPELL_SUMMON'
 HEAL = 'SPELL_HEAL'
 HEALPERIODIC = 'SPELL_PERIODIC_HEAL'
 
+CLASS_COLOUR = {
+  HUNTER: 0xFFABD473,
+  WARLOCK: 0xFF8788EE,
+  PRIEST: 0xFFFFFFFF,
+  PALADIN: 0xFFF58CBA,
+  MAGE: 0xFF3FC7EB,
+  ROGUE: 0xFFFFF569,
+  DRUID: 0xFFFF7D0A,
+  SHAMAN: 0xFF0070DE,
+  WARRIOR: 0xFFC79C6E,
+  DEATHKNIGHT: 0xFFC41F3B,
+}
+
 spell_spec = {
     #DK - Blood
     49016: {
         'name': 'Hysteria',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 1,
         'type': AURA,
     },
     55233: {
         'name': 'Vampiric Blood',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 1,
         'type': AURA,
     },
     55262: {
         'name': 'Heart Strike',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 1,
         'type': DAMAGE,
     },
     49504: {
         'name': 'Bloody Vengeance',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 1,
         'type': AURA,
     },
     #DK - Frost
     51271: {
         'name': 'Unbreakable Armor',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 2,
         'type': AURA,
     },
     55268: {
         'name': 'Frost Strike',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 2,
         'type': DAMAGE,
     },
     #DK - Unholy
     55271: {
         'name': 'Scourge Strike',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 3,
         'type': DAMAGE,
     },
     49222: {
         'name': 'Bone Shield',
-        'class': DK,
+        'class': DEATHKNIGHT,
         'spec': 3,
         'type': AURA,
     },
@@ -93,44 +103,44 @@ spell_spec = {
     69369: {
         'name': 'Predatory Swiftness',
         'class': DRUID,
-        'spec': 21,
+        'spec': 2,
         'type': AURA,
     },
     52610: {
         'name': 'Savage Roar',
         'class': DRUID,
-        'spec': 21,
+        'spec': 2,
         'type': AURA,
     },
     62078: {
         'name': 'Swipe (Cat)',
         'class': DRUID,
-        'spec': 21,
+        'spec': 2,
         'type': DAMAGE,
     },
     #Druid - Feral (Bear)
     5229: {
         'name': 'Enrage',
         'class': DRUID,
-        'spec': 22,
+        'spec': 4,
         'type': AURA,
     },
     22842: {
         'name': 'Frenzied Regeneration',
         'class': DRUID,
-        'spec': 22,
+        'spec': 4,
         'type': AURA,
     },
     48480: {
         'name': 'Maul',
         'class': DRUID,
-        'spec': 22,
+        'spec': 4,
         'type': DAMAGE,
     },
     48562: {
         'name': 'Swipe (Bear)',
         'class': DRUID,
-        'spec': 22,
+        'spec': 4,
         'type': DAMAGE,
     },
     #Druid - Restoration
@@ -475,3 +485,19 @@ spell_spec = {
         'type': AURA,
     },
 }
+
+SPELL_SCHOOL = {
+    1: 0xFFFFFF00,
+    2: 0xFFFFE680,
+    4: 0xFFFF8000,
+    8: 0xFF4DFF4D,
+    16: 0xFF80FFFF,
+    32: 0xFF8080FF,
+    64: 0xFFFF80FF,
+}
+
+def getSchools(school):
+    return [school & 2**i for i in range(7)]
+
+def getSchoolColours(school):
+    return [SPELL_SCHOOL[x] for x in getSchools(school) if x > 0]
