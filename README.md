@@ -4,11 +4,14 @@ A personal mini-project to create a program to parse and view combat logs of Wor
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
-## 0.5.3
+## 0.5.4
 New:
-* Added spec tracking, for each encounter
-* Added spec/spell icon on meters/breakdown
-* Improved visual display of meters/breakdown
+* Display a bar visualisation of damage and healing meters
+* Improve graphics across all meters and death log
+
+Bugfix:
+* The death log now behaves properly when multiple events are registered with the same timestamp
+* Unassigned pets are now displayed appropriately in global damage and healing meters
 
 ----
 
@@ -18,55 +21,56 @@ New:
 * Parsing is very slow (1M entries take 30+ minutes)
 * Aura tracking may be inaccurate, possibly due to bugs, but mostly due to how poor the Combat Log is in this regard.
 * Encounter parsing has some issues, like deciding wipe/kill on multi-target fights (e.g. The Four Horsemen), or bosses with 'immune' phases (e.g. Noth the Plaguebringer)
+* Opening more than one parse in the same session results in unwanted behaviour
 
 ----
 
 ## Upcoming features (hopefully)
 
+* Add pet <-> owner pairing of creatures summoned by Snake Trap 
 * Improve auras analysis (e.g. uptime)
 * Improve encounter parsing
 * Add absorb log
 * Add a graph for the currently selected meter
-* Add bars on meters, display total and percentage on meters additionally to raw numbers
 * Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
 * Add passing a .rar or .zip file containing the WoWCombatLog.txt to analyse
-* Beautify more
+* Beautify even more
 
 ----
 
 ## Example pictures:
 
-Encounter selection
-
-![Encounter selection](https://i.imgur.com/zCeNXpq.png)
-
 Damage meter
 
-![Damage meter](https://i.imgur.com/fmiLX9w.png)
+![Damage meter](https://i.imgur.com/la1Hike.png)
 
 Damage breakdown
 
-![Damage breakdown](https://i.imgur.com/AKNkrof.png)
+![Damage breakdown](https://i.imgur.com/47KA9Qn.png)
+
+Damage Taken meter
+
+![Damage Taken meter](https://i.imgur.com/Y0GRlb2.png)
 
 Damage Taken breakdown
 
-![Damage Taken breakdown](https://i.imgur.com/aWYG4ue.png)
+![Damage Taken breakdown](https://i.imgur.com/g0Rcgt2.png)
 
 Healing Meter
 
-![Healing Meter](https://i.imgur.com/Yaisiid.png)
+![Healing Meter](https://i.imgur.com/6Fhmk7x.png)
 
 Healing breakdown
 
-![Healing breakdown](https://i.imgur.com/jIKbrsQ.png)
+![Healing breakdown](https://i.imgur.com/J8lZm61.png)
 
 Death log
 
-![Death log](https://i.imgur.com/4tavP9Q.png)
+![Death log](https://i.imgur.com/wDBTpgr.png)
 
 Death recap
 
-![Death recap](https://i.imgur.com/3LA9g4A.png)
+![Death recap](https://i.imgur.com/V0D18gA.png)
 
 Manual pet assignment
 
@@ -75,6 +79,12 @@ Manual pet assignment
 ----
 
 ## Past versions
+
+### 0.5.3
+New:
+* Added spec tracking, for each encounter
+* Added spec/spell icon on meters/breakdown
+* Improved visual display of meters/breakdown
 
 ### 0.5.2
 New:
