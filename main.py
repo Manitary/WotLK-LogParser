@@ -1,14 +1,14 @@
 import sys, os
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy
-from PyQt6.QtGui import QAction, QFont, QPixmap
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy, QAbstractItemDelegate, QStyledItemDelegate
+from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
-from PyQt6.QtCore import Qt, QTime
+from PyQt6.QtCore import Qt, QTime, QRectF
 import pyqtgraph as pg
 from tools import flattenIntervals, plotAuras
 import time, datetime
 from dateutil.parser import parse as timeparse
 import zipfile, rarfile
-import parser, pet_recognition
+import parser, pet_recognition, class_recognition
 
 ALL = "AllUnits"
 FRIENDLY = "Friendlies"
@@ -23,10 +23,28 @@ DEBUFFS = "Debuffs"
 METERS = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS, BUFFS, DEBUFFS]
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
 ICON_COL = {
-    DAMAGEDONE: {'all': 4, 'unit': 9},
-    DAMAGETAKEN: {'all': 5, 'unit': 8},
-    HEALING: {'all': 6, 'unit': 6},
+    DAMAGEDONE: {True: 5, False: 10},
+    DAMAGETAKEN: {True: 6, False: 10},
+    HEALING: {True: 7, False: 8},
 }
+BAR_COL = {
+    DAMAGEDONE: {True: 2, False: 2},
+}
+BAR_OFFSET_X = 5
+BAR_OFFSET_Y = 6
+PATH_HERO = lambda icon: f"wow_hero_classes/{icon}.png"
+PATH_SPELL = lambda icon: f"wow_icon/{icon.lower()}.jpg"
+MELEE_ICON = 'inv_axe_01'
+
+
+style_sheet = '''
+QTableView {
+    background-color: black;
+    alternate-background-color: #161616;
+    gridline-color: #515151;
+    color: white;
+}
+'''
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -153,6 +171,7 @@ class MainWindow(QMainWindow):
 
         self.model = QSqlTableModel()
         self.table = QTableView()
+        self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.clicked.connect(self.tableClicked)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
@@ -172,7 +191,7 @@ class MainWindow(QMainWindow):
         elif meter == HEALING:
             self.queryHealing(meter)
         elif meter == DEATHS:
-            self.queryDeaths()
+            self.queryDeaths(meter)
         elif meter == BUFFS:
             self.queryBuffs()
         else:
@@ -204,9 +223,10 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
+        self.table.setItemDelegateForColumn(2, DELEGATES[meter][everyone])
         self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
-        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'])
-        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'] + 1)
+        self.table.hideColumn(ICON_COL[meter][everyone])
+        self.table.hideColumn(ICON_COL[meter][everyone] + 1)
 
     def queryDamageTaken(self, meter):
         display_query = QSqlQuery()
@@ -232,9 +252,10 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
+        self.table.setItemDelegateForColumn(2, DELEGATES[meter][everyone])
         self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
-        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'])
-        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'] + 1)
+        self.table.hideColumn(ICON_COL[meter][everyone])
+        self.table.hideColumn(ICON_COL[meter][everyone] + 1)
 
     def queryHealing(self, meter):
         display_query = QSqlQuery()
@@ -260,12 +281,14 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         display_query.exec()
+        self.table.setItemDelegateForColumn(2, DELEGATES[meter][everyone])
         self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
-        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'])
-        self.table.hideColumn(ICON_COL[meter]['all' if everyone else 'unit'] + 1)
+        self.table.hideColumn(ICON_COL[meter][everyone])
+        self.table.hideColumn(ICON_COL[meter][everyone] + 1)
 
-    def queryDeaths(self, timestamp = None):
+    def queryDeaths(self, meter, timestamp = None):
         display_query = QSqlQuery()
+        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         if timestamp:
             with open('queries/deaths_1.sql', 'r') as f:
                 display_query.prepare(f.read())
@@ -273,15 +296,21 @@ class MainWindow(QMainWindow):
             display_query.bindValue(":endTime", timestamp)
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
-            self.model.setQuery(display_query)
-        elif self.source_select.currentData() == AFFILIATION[self.source_affiliation]:
+            self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
+            self.table.setModel(deathLogSqlTableModel(display_query))
+            for i in range(4, 7):
+                self.table.hideColumn(i)
+        elif everyone:
             with open('queries/deaths_all.sql', 'r') as f:
                 display_query.prepare(f.read())
             display_query.bindValue(":affiliation", self.source_affiliation)
             display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
-            self.model.setQuery(display_query)
+            self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
+            self.table.setModel(deathSqlTableModel(display_query))
+            for i in range(5, 9):
+                self.table.hideColumn(i)
         else:
             self.source_select.setCurrentIndex(0)
 
@@ -382,11 +411,12 @@ class MainWindow(QMainWindow):
             self.source_select.setCurrentIndex(new_source)
         elif self.meter_select.currentText() == DEATHS:
             ts = item.siblingAtColumn(5).data()
+            print(ts)
             #Hacky disconnect, may want to revisit the source list selector (and add death timestamp to the data)
             self.source_select.disconnect()
             self.source_select.setCurrentIndex(self.source_select.findText(item.siblingAtColumn(1).data()))
             self.source_select.currentTextChanged.connect(self.updateMainQuery)
-            self.queryDeaths(ts)
+            self.queryDeaths(DEATHS, ts)
         elif self.meter_select.currentText() == BUFFS:
             self.plotAuraGraph(item.siblingAtColumn(4).data())
     
@@ -411,24 +441,161 @@ class MainWindow(QMainWindow):
 class meterSqlTableModel(QSqlTableModel):
     def __init__(self, query, meter, everyone, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.hide = -1
-        self.path = lambda x: None
-        if meter in ICON_COL:
-            self.hide = ICON_COL[meter]['all' if everyone else 'unit']
-        if everyone:
-            self.path = lambda icon: f"wow_hero_classes/{icon}.png"
-        else:
-            self.path = lambda icon: f"wow_icon/{icon.lower()}.jpg"
+        self.meter = meter
+        self.everyone = everyone
+        self.path = PATH_HERO if everyone else PATH_SPELL
         self.setQuery(query)
 
-    def data(self, index, role = Qt.ItemDataRole.DisplayRole):
-        if index.column() == 0 and role == Qt.ItemDataRole.DecorationRole:
-            icon = QSqlTableModel.data(self, index.siblingAtColumn(self.hide), Qt.ItemDataRole.DisplayRole)
-            if icon:
-                return QPixmap(self.path(icon)).scaledToHeight(25)
+    def data(self, index, role):
+        if index.column() == 0:
+            if role == Qt.ItemDataRole.DecorationRole:
+                try:
+                    icon = QSqlTableModel.data(self, index.siblingAtColumn(ICON_COL[self.meter][self.everyone]), Qt.ItemDataRole.DisplayRole)
+                    if icon:
+                        return QPixmap(self.path(icon)).scaledToHeight(25)
+                    elif QSqlTableModel.data(self, index.siblingAtColumn(0), Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
+                        return QPixmap(self.path('inv_axe_01')).scaledToHeight(25)
+                except:
+                    pass
+            elif role == Qt.ItemDataRole.ForegroundRole and self.meter != DEATHS:
+                if self.everyone:
+                    try:
+                        return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(ICON_COL[self.meter][self.everyone]).data()[:-2]])
+                    except:
+                        pass
+                else:
+                    try:
+                        return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(ICON_COL[self.meter][self.everyone] + 1).data()))[-1])
+                    except:
+                        pass
+        elif index.column() == 1 and role == Qt.ItemDataRole.TextAlignmentRole:
+            #return Qt.AlignmentFlag.AlignRight
+            return 130
         return QSqlTableModel.data(self, index, role)
+
+class deathSqlTableModel(QSqlTableModel):
+    def __init__(self, query, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setQuery(query)
+
+    def data(self, index, role):
+        if index.column() == 1:
+            if role == Qt.ItemDataRole.DecorationRole:
+                if (icon := QSqlTableModel.data(self, index.siblingAtColumn(6), Qt.ItemDataRole.DisplayRole)):
+                    return QPixmap(PATH_HERO(icon)).scaledToHeight(25)
+            elif role == Qt.ItemDataRole.ForegroundRole:
+                try:
+                    return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(6).data()[:-2]])
+                except:
+                    pass
+        elif index.column() == 3:
+            if role == Qt.ItemDataRole.DecorationRole:
+                if (icon := QSqlTableModel.data(self, index.siblingAtColumn(7), Qt.ItemDataRole.DisplayRole)):
+                    return QPixmap(PATH_SPELL(icon)).scaledToHeight(25)
+                elif QSqlTableModel.data(self, index, Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
+                    return QPixmap(PATH_SPELL(MELEE_ICON)).scaledToHeight(25)
+            elif role == Qt.ItemDataRole.ForegroundRole:
+                try:
+                    return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(8).data()))[-1])
+                except:
+                    pass
+        elif index.column() == 0 and role == Qt.ItemDataRole.TextAlignmentRole:
+            #return Qt.AlignmentFlag.AlignRight
+            return 130
+        return QSqlTableModel.data(self, index, role)
+
+class deathLogSqlTableModel(QSqlTableModel):
+    def __init__(self, query, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setQuery(query)
+    
+    def data(self, index, role):
+        if index.column() == 0 and role == Qt.ItemDataRole.TextAlignmentRole:
+            #return Qt.AlignmentFlag.AlignRight
+            return 130
+        elif index.column() == 1:
+            if role == Qt.ItemDataRole.ForegroundRole:
+                event = index.siblingAtColumn(4).data()
+                if event.endswith('DAMAGE'):
+                    return QBrush(Qt.GlobalColor.red)
+                elif event.endswith('HEAL'):
+                    return QBrush(Qt.GlobalColor.green)
+            elif role == Qt.ItemDataRole.DecorationRole:
+                if (icon := QSqlTableModel.data(self, index.siblingAtColumn(6), Qt.ItemDataRole.DisplayRole)):
+                    return QPixmap(PATH_SPELL(icon)).scaledToHeight(25)
+                elif QSqlTableModel.data(self, index, Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
+                    return QPixmap(PATH_SPELL(MELEE_ICON)).scaledToHeight(25)
+        elif index.column() == 2:
+            if role == Qt.ItemDataRole.ForegroundRole:
+                try:
+                    colour = class_recognition.getSchoolColours(int(index.siblingAtColumn(6).data()))[-1]
+                    return QBrush(colour)
+                except:
+                    pass
+        elif index.column() == 3:
+            if role == Qt.ItemDataRole.DecorationRole:
+                if (icon := QSqlTableModel.data(self, index.siblingAtColumn(5), Qt.ItemDataRole.DisplayRole)):
+                    return QPixmap(PATH_HERO(icon)).scaledToHeight(25)
+            elif role == Qt.ItemDataRole.ForegroundRole:
+                try:
+                    if (colour := class_recognition.CLASS_COLOUR[index.siblingAtColumn(5).data()[:-2]]):
+                        return QBrush(colour)
+                except:
+                    pass
+        return QSqlTableModel.data(self, index, role)
+
+class meterDelegate(QAbstractItemDelegate):
+    def __init__(self, meter = DAMAGEDONE, everyone = True):
+        super().__init__()
+        self.meter = meter
+        self.everyone = everyone
+    
+    def paint(self, painter, option, index):
+        try:
+            scale = float(index.data(Qt.ItemDataRole.DisplayRole))
+            try:
+                colour = class_recognition.CLASS_COLOUR[index.siblingAtColumn(ICON_COL[self.meter][self.everyone]).data()[:-2]]
+            except:
+                colour = Qt.GlobalColor.gray
+            x = option.rect.topLeft().x()
+            y = option.rect.topLeft().y()
+            w = option.rect.topRight().x() - x
+            h = option.rect.bottomLeft().y() - y
+            w = (w - 2 * BAR_OFFSET_X) * scale
+            h = (h - 2 * BAR_OFFSET_Y)
+            x = x + BAR_OFFSET_X
+            y = y + BAR_OFFSET_Y
+            painter.setPen(Qt.PenStyle.NoPen)
+            painter.setBrush(QBrush(colour))
+            try:
+                if self.everyone:
+                    painter.drawRect(QRectF(x, y, w, h))
+                else:
+                    colours = class_recognition.getSchoolColours(int(index.siblingAtColumn(ICON_COL[self.meter][self.everyone] + 1).data()))
+                    if len(colours) > 1:
+                        gradient = QLinearGradient(x, y, x+w, y+h)
+                        gradient.setColorAt(0.0, colours[1])
+                        gradient.setColorAt(1.0, colours[0])
+                        painter.fillRect(QRectF(x, y, w, h), gradient)
+                    else:
+                        painter.setBrush(QBrush(colours[0]))
+                        painter.drawRect(QRectF(x, y, w, h))
+            except:
+                painter.drawRect(QRectF(x, y, w, h))
+        except:
+            pass
+
+class deathDelegate(QAbstractItemDelegate):
+    def __init__(self, everyone):
+        super().__init__()
+        self.everyone = everyone
+    
+    def paint(self, painter, option, index):
+        pass
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
+    app.setStyleSheet(style_sheet)
+    DELEGATES = {meter: {True: meterDelegate(meter, True), False: meterDelegate(meter, False)} for meter in METERS}
     window = MainWindow()
     sys.exit(app.exec())

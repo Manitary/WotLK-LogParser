@@ -11,7 +11,7 @@ CREATE TABLE events (
     spellID MEDIUMINT,
     environmentalType VARCHAR(8),
     spellName VARCHAR(30),
-    spellSchool VARBINARY,
+    spellSchool TINYINT,
     amount MEDIUMINT UNSIGNED,
     overkill MEDIUMINT UNSIGNED,
     school TINYINT,
@@ -28,7 +28,7 @@ CREATE TABLE events (
     extraAmount MEDIUMINT UNSIGNED,
     extraSpellID MEDIUMINT UNSIGNED,
     extraSpellName VARCHAR(30),
-    extraSchool VARBINARY,
+    extraSchool TINYINT,
     auraType VARCHAR(6),
     itemID SMALLINT UNSIGNED,
     itemName VARCHAR(50)

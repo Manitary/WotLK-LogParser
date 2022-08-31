@@ -1,117 +1,104 @@
 SELECT
     PRINTF('%d:%02d',
-        (JULIANDAY(dtime) - JULIANDAY(:startTime)) * 86400 / 60,
-        ((JULIANDAY(dtime) - JULIANDAY(:startTime)) * 86400 % 60)) AS time
+        (JULIANDAY(time) - JULIANDAY(:startTime)) * 86400 / 60,
+        ((JULIANDAY(time) - JULIANDAY(:startTime)) * 86400 % 60)) AS time
     , name
     , murderer
-    , spell
-    , PRINTF('%d (%d)', dmg, overkill) AS dmg
-    , etime AS timestamp
-FROM
-    (
+    , COALESCE(spell, environment) AS spell
+    , IIF(overkill > 0, PRINTF('%,d (O: %,d)', dmg, overkill), PRINTF('%,d', dmg)) AS dmg
+    , time
+    , spec
+    , icon
+    , school
+FROM (
+    SELECT
+        LAST_VALUE(e.timestamp) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS time
+        , LAST_VALUE(e.targetName) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS name
+        , LAST_VALUE(e.sourceName) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS murderer
+        , LAST_VALUE(e.spellName) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS spell
+        , LAST_VALUE(e.amount) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS dmg
+        , LAST_VALUE(e.overkill) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS overkill
+        , LAST_VALUE(e.environmentalType) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS environment
+        , LAST_VALUE(spec) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS spec
+        , LAST_VALUE(icon) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS icon
+        , LAST_VALUE(e.spellSchool) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS school
+    FROM events e
+    JOIN (
         SELECT
-            ed.time AS dtime
-            , LAST_VALUE(e.time) OVER (
-                PARTITION BY ed.time, ed.name
-                ORDER BY e.time
-                RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
-            ) AS etime
-            , LAST_VALUE(ed.name) OVER (
-                PARTITION BY ed.time, ed.name
-                ORDER BY e.time
-                RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
-            ) AS name
-            , LAST_VALUE(e.murderer) OVER (
-                PARTITION BY ed.time, ed.name
-                ORDER BY e.time
-                RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
-            ) AS murderer
-            , LAST_VALUE(e.spell) OVER (
-                PARTITION BY ed.time, ed.name
-                ORDER BY e.time
-                RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
-            ) AS spell
-            , LAST_VALUE(e.dmg) OVER (
-                PARTITION BY ed.time, ed.name
-                ORDER BY e.time
-                RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
-            ) AS dmg
-            , LAST_VALUE(e.overkill) OVER (
-                PARTITION BY ed.time, ed.name
-                ORDER BY e.time
-                RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
-            ) AS overkill
-        FROM
-            (
-                SELECT
-                    events.timestamp AS time
-                    , events.eventName AS event
-                    , events.spellName AS spell
-                    , events.targetGUID AS guid
-                    , events.amount AS dmg
-                    , events.overkill AS overkill
-                    , events.sourceName AS murderer
-                FROM
-                    events
-                JOIN
-                    (   
-                        SELECT
-                            unitGUID
-                        FROM
-                            actors
-                        WHERE
-                        (
-                            actors.isPlayer = :affiliation
-                            OR
-                                (
-                                    :affiliation = 0
-                                AND actors.isNPC = 1
-                                )
-                        )
-                    ) a
-                ON
-                    events.targetGUID = a.unitGUID
-                WHERE
-                    event LIKE '%DAMAGE'
-                    AND events.timestamp >= :startTime
-                    AND events.timestamp <= :endTime
-            ) e
-        JOIN
-            (
-                SELECT
-                    events.timestamp AS time
-                    , events.targetName AS name
-                    , events.targetGUID AS guid
-                FROM
-                    events
-                JOIN
-                    (   
-                        SELECT
-                            unitGUID
-                        FROM
-                            actors
-                        WHERE
-                            (
-                                actors.isPlayer = :affiliation
-                                OR
-                                    (
-                                        :affiliation = 0
-                                    AND actors.isNPC = 1
-                                    )
-                            )
-                    ) a
-                ON
-                    events.targetGUID = a.unitGUID
-                WHERE
-                    events.eventName = 'UNIT_DIED'
-                    AND events.timestamp >= :startTime
-                    AND events.timestamp <= :endTime
-            ) ed
-        ON
-            e.guid = ed.guid
-        AND e.time <= ed.time
+            id
+            , timestamp
+            , targetName
+            , targetGUID
+        FROM events
+        JOIN actors
+        ON events.targetGUID = actors.unitGUID
+        WHERE
+            eventName = 'UNIT_DIED'
+        AND timestamp >= :startTime
+        AND timestamp <= :endTime
+        AND (
+                isPlayer = :affiliation
+            OR (
+                    :affiliation = 0
+                AND isNPC = 1
+            )
+        )
+    ) ed
+    ON
+        e.targetGUID = ed.targetGUID
+    AND e.timestamp <= ed.timestamp
+    LEFT JOIN specs
+    ON
+        e.targetGUID = specs.unitGUID
+    LEFT JOIN spell_db.spell_data s
+    ON e.spellID = s.spellID
+    WHERE
+        e.timestamp >= :startTime
+    AND e.eventName LIKE '%DAMAGE%'
+    AND (
+            specs.timestamp = :startTime
+        OR  specs.timestamp IS NULL
     )
-GROUP BY
-    time
-ORDER BY
-    time
+)
+GROUP BY time
+ORDER BY time

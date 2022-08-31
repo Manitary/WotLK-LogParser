@@ -1,16 +1,17 @@
 WITH calc AS (
     SELECT
         name
-        , heal - overheal AS heal
-        , overheal
-        , overheal * 100.0 / heal AS overhealpct
-        , (heal - overheal) * 100.0 / (SUM(heal) OVER() - SUM(overheal) OVER()) AS healpct
-        , heal / (JULIANDAY(:endTime) - JULIANDAY(:startTime)) / 86400 AS hps
-        , (heal - overheal) / (JULIANDAY(:endTime) - JULIANDAY(:startTime)) / 86400 AS ehps
+        , SUM(heal) - SUM(overheal) AS heal
+        , SUM(overheal) AS overheal
+        , SUM(overheal) * 100.0 / SUM(heal) AS overhealpct
+        , (SUM(heal) - SUM(overheal)) * 100.0 / (SUM(heal) OVER() - SUM(overheal) OVER()) AS healpct
+        , SUM(heal) / (JULIANDAY(:endTime) - JULIANDAY(:startTime)) / 86400 AS hps
+        , (SUM(heal) - SUM(overheal)) / (JULIANDAY(:endTime) - JULIANDAY(:startTime)) / 86400 AS ehps
         , spec
+        , COUNT(name) AS num
     FROM (
         SELECT
-            s.name AS name
+            COALESCE(p.ownerName, s.name) AS name
             , SUM(s.heal) AS heal
             , SUM(s.overheal) AS overheal
             , COALESCE(p.ownerGUID, s.sguid) AS owner
@@ -34,41 +35,40 @@ WITH calc AS (
                     AND actors.isNPC = 1
                 )
             )
-            AND events.targetName = :targetName
+            AND targetName = :targetName
             AND events.eventName LIKE '%HEAL'
-            GROUP BY
-                events.sourceGUID
+            GROUP BY events.sourceGUID
         ) s
         LEFT JOIN pets p
         ON s.sguid = p.petGUID
-        GROUP BY
-            owner
+        GROUP BY owner
     ) m
     LEFT JOIN specs
     ON m.owner = specs.unitGUID
-    GROUP BY
-        owner
+    WHERE
+        specs.timestamp = :startTime
+    OR  specs.timestamp IS NULL
+    GROUP BY name
 )
 SELECT
-    name
-    , PRINTF('%.2f', healpct) AS pct
+    name || IIF(num > 1, ' (' || num || ')', '') AS name
+    , PRINTF('%.2f%%', healpct) AS pct
+    , healpct / MAX(healpct) OVER() AS relpct
     , PRINTF('%,d', heal) AS heal
     , PRINTF('%,d', ehps) AS ehps
     , PRINTF('%,d (%2.2f%%)', overheal, overhealpct) AS overheal
     , PRINTF('%,d', hps) AS hps
     , spec
-    , healpct
 FROM calc
 UNION ALL
 SELECT
     'Total' AS name
     , '-' AS pct
+    , NULL AS relpct
     , PRINTF('%,d', SUM(heal)) AS heal
     , PRINTF('%,d', SUM(ehps)) AS ehps
-    , PRINTF('%,d (%2.2f%%)', SUM(overheal), SUM(overheal) * 100.0 / SUM(heal)) AS overheal
+    , PRINTF('%,d (%2.2f%%)', SUM(overheal), SUM(overheal) * 100.0 / (SUM(heal) + SUM(overheal))) AS overheal
     , PRINTF('%,d', SUM(hps)) AS hps
     , NULL AS spec
-    , NULL AS healpct
 FROM calc
-ORDER BY
-    healpct DESC
+ORDER BY relpct DESC

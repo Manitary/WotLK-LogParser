@@ -24,43 +24,49 @@ WITH calc AS (
             ON events.targetGUID = actors.unitGUID
             WHERE
                 events.timestamp >= :startTime
-                AND events.timestamp <= :endTime
-                AND (
-                        actors.isPlayer = :affiliation
-                    OR  actors.isPet = :affiliation
-                    OR (
-                            :affiliation = 0
-                        AND actors.isNPC = 1
-                    )
+            AND events.timestamp <= :endTime
+            AND (
+                    actors.isPlayer = :affiliation
+                OR  actors.isPet = :affiliation
+                OR (
+                        :affiliation = 0
+                    AND actors.isNPC = 1
                 )
+            )
             AND (
                     events.eventName LIKE '%DAMAGE'
                 OR  events.eventName LIKE '%MISSED'
             )
-            GROUP BY events.targetName
+            GROUP BY events.targetGUID
         )
     ) m
     LEFT JOIN specs
     ON m.guid = specs.unitGUID
+    WHERE
+        total > 0
+    AND (
+            specs.timestamp = :startTime
+        OR  specs.timestamp IS NULL
+    )
     GROUP BY guid
 )
 SELECT
     name
-    , PRINTF('%.2f', totalpct) AS pct
+    , PRINTF('%.2f%%', totalpct) AS pct
+    , totalpct / MAX(totalpct) OVER() AS relpct
     , PRINTF('%,d', total) AS total
     , PRINTF('%,d', dtps) AS dtps
     , PRINTF('%,d (%.2f%%)', mitigated, mitigated * 100.0 / total) AS mitigated
     , spec
-    , totalpct
 FROM calc
 UNION ALL
 SELECT
     'Total' AS name
     , '-' AS pct
+    , NULL AS relpct
     , PRINTF('%,d', SUM(total)) AS total
     , PRINTF('%,d', SUM(dtps)) AS dtps
     , PRINTF('%,d (%.2f%%)', SUM(mitigated), SUM(mitigated) * 100.0 / SUM(total)) AS mitigated
     , NULL AS spec
-    , NULL AS totalpct
 FROM calc
-ORDER BY totalpct DESC
+ORDER BY relpct DESC
