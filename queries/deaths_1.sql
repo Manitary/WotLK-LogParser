@@ -1,6 +1,7 @@
 SELECT
     PRINTF('%.2f', (JULIANDAY(e.timestamp) - JULIANDAY(:endTime)) * 86400) AS time
     , COALESCE(missType, '')
+    || IIF(eventName = 'UNIT_DIED', '(Previous death)', '')
     || IIF(eventName LIKE '%DOSE', 'x', '')
     || IIF(critical > 0, '*' || amount || '*', COALESCE(amount, ''))
     || IIF(absorbed > 0, ' (A:' || absorbed || ')', '')

@@ -453,7 +453,7 @@ class meterSqlTableModel(QSqlTableModel):
                     icon = QSqlTableModel.data(self, index.siblingAtColumn(ICON_COL[self.meter][self.everyone]), Qt.ItemDataRole.DisplayRole)
                     if icon:
                         return QPixmap(self.path(icon)).scaledToHeight(25)
-                    elif QSqlTableModel.data(self, index.siblingAtColumn(0), Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
+                    elif QSqlTableModel.data(self, index, Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
                         return QPixmap(self.path('inv_axe_01')).scaledToHeight(25)
                 except:
                     pass
@@ -520,10 +520,12 @@ class deathLogSqlTableModel(QSqlTableModel):
                     return QBrush(Qt.GlobalColor.red)
                 elif event.endswith('HEAL'):
                     return QBrush(Qt.GlobalColor.green)
+                elif event.endswith('MISSED'):
+                    return QBrush(Qt.GlobalColor.cyan)
             elif role == Qt.ItemDataRole.DecorationRole:
                 if (icon := QSqlTableModel.data(self, index.siblingAtColumn(6), Qt.ItemDataRole.DisplayRole)):
                     return QPixmap(PATH_SPELL(icon)).scaledToHeight(25)
-                elif QSqlTableModel.data(self, index, Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
+                elif QSqlTableModel.data(self, index.siblingAtColumn(2), Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
                     return QPixmap(PATH_SPELL(MELEE_ICON)).scaledToHeight(25)
         elif index.column() == 2:
             if role == Qt.ItemDataRole.ForegroundRole:
