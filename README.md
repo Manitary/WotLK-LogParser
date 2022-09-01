@@ -4,14 +4,15 @@ A personal mini-project to create a program to parse and view combat logs of Wor
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
-## 0.5.4
+## 0.5.5
 New:
-* Display a bar visualisation of damage and healing meters
-* Improve graphics across all meters and death log
+* Add spec icon to the unit selection menu
+* The death log now filter deaths based on the selected unit. Visualising the death recap still requires interaction with the displayed table
 
 Bugfix:
-* The death log now behaves properly when multiple events are registered with the same timestamp
-* Unassigned pets are now displayed appropriately in global damage and healing meters
+* Opening more than one parse in the same session does not longer result in unwanted behaviour of the application
+* The currently selected unit no longer resets when selecting a different meter or encounter (provided it is still a suitable unit)
+* The currently select unit now resets when opening another parse, even in the case of a valid unit
 
 ----
 
@@ -20,8 +21,7 @@ Bugfix:
 * Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
 * Parsing is very slow (1M entries take 30+ minutes)
 * Aura tracking may be inaccurate, possibly due to bugs, but mostly due to how poor the Combat Log is in this regard.
-* Encounter parsing has some issues, like deciding wipe/kill on multi-target fights (e.g. The Four Horsemen), or bosses with 'immune' phases (e.g. Noth the Plaguebringer)
-* Opening more than one parse in the same session results in unwanted behaviour
+* Encounter parsing has some issues, like identifying wipe or kill on multi-target fights (e.g. The Four Horsemen)
 
 ----
 
@@ -39,6 +39,10 @@ Bugfix:
 ----
 
 ## Example pictures:
+
+Unit selection menu
+
+![Unit selection menu](https://i.imgur.com/81S4x5B.png)
 
 Damage meter
 
@@ -68,6 +72,10 @@ Death log
 
 ![Death log](https://i.imgur.com/wDBTpgr.png)
 
+Death log of a unit
+
+![Death log of a unit](https://i.imgur.com/B89l2pn.png)
+
 Death recap
 
 ![Death recap](https://i.imgur.com/V0D18gA.png)
@@ -79,6 +87,15 @@ Manual pet assignment
 ----
 
 ## Past versions
+
+### 0.5.4
+New:
+* Display a bar visualisation of damage and healing meters
+* Improve graphics across all meters and death log
+
+Bugfix:
+* The death log now behaves properly when multiple events are registered with the same timestamp
+* Unassigned pets are now displayed appropriately in global damage and healing meters
 
 ### 0.5.3
 New:
