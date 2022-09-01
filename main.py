@@ -128,6 +128,7 @@ class MainWindow(QMainWindow):
         self.create_pet_editing_window = None
         self.encounter_select = QComboBox()
         self.meter_select = QComboBox()
+        self.meter_select.addItems(METERS)
         self.source_select = QComboBox()
         self.target_select = QComboBox()
         self.source_clear_button = QPushButton("X", self)
@@ -167,13 +168,12 @@ class MainWindow(QMainWindow):
         self.meter_select.disconnect()
         self.source_select.disconnect()
         self.target_select.disconnect()
-        
+
         self.encounter_select.clear()
         encounter_query = QSqlQuery("SELECT enemy, timeStart, timeEnd, isKill FROM encounters ORDER BY timeStart")
         encounter_query.exec()
         while encounter_query.next():
             self.encounter_select.addItem(f"{encounter_query.value(0)} ({'kill' if encounter_query.value(3) else 'wipe'}) - {encounter_query.value(1)} | {encounter_query.value(2)}", (encounter_query.value(1), encounter_query.value(2)))
-        self.meter_select.addItems(METERS)
         self.source_current = FRIENDLY
         self.target_current = HOSTILE
         self.source_affiliation = 1
