@@ -4,34 +4,27 @@ SELECT
     , actors.isPet
     , actors.isNPC
     , actors.unitGUID
-FROM
-    (
-        SELECT
-            sourceName
-        FROM
-            events
-        WHERE
-                events.timestamp >= :startTime
-            AND events.timestamp <= :endTime
-        GROUP BY
-            sourceName
+    , spec
+FROM (
+    SELECT sourceName
+    FROM events
+    WHERE
+            events.timestamp >= :startTime
+        AND events.timestamp <= :endTime
+    GROUP BY sourceName
     UNION
-        SELECT
-            targetName
-        FROM
-            events
-        WHERE
-                events.timestamp >= :startTime
-            AND events.timestamp <= :endTime
-        GROUP BY
-            targetName
-    ) n
-INNER JOIN
-    actors
-ON
-    actors.unitName = n.sourceName
-GROUP BY
-    actors.unitName
+    SELECT targetName
+    FROM events
+    WHERE
+            events.timestamp >= :startTime
+        AND events.timestamp <= :endTime
+    GROUP BY targetName
+) n
+INNER JOIN actors
+ON actors.unitName = n.sourceName
+LEFT JOIN specs
+ON actors.unitGUID = specs.unitGUID
+GROUP BY actors.unitName
 ORDER BY
     actors.isPlayer DESC
     , actors.unitName

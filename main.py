@@ -1,6 +1,6 @@
 import sys, os
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy, QAbstractItemDelegate, QStyledItemDelegate
-from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient
+from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt, QTime, QRectF
 import pyqtgraph as pg
@@ -32,8 +32,8 @@ BAR_COL = {
 }
 BAR_OFFSET_X = 5
 BAR_OFFSET_Y = 6
-PATH_HERO = lambda icon: f"wow_hero_classes/{icon}.png"
-PATH_SPELL = lambda icon: f"wow_icon/{icon.lower()}.jpg"
+PATH_HERO = lambda icon: f"wow_hero_classes/{icon}.png" if icon else ''
+PATH_SPELL = lambda icon: f"wow_icon/{icon.lower()}.jpg" if icon else ''
 MELEE_ICON = 'inv_axe_01'
 
 
@@ -376,23 +376,37 @@ class MainWindow(QMainWindow):
         unit_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         unit_query.bindValue(":endTime", self.encounter_select.currentData()[1])
         unit_query.exec()
-        while (unit_query.next()):
+        while unit_query.next():
             #Take into account mind controlled NPC as friendly (isPet = 1, isNPC = 1)
             if unit_query.value(1) == self.source_affiliation or unit_query.value(3) == 1 - self.source_affiliation or (unit_query.value(2) and self.source_affiliation):
-                self.source_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", (unit_query.value(0), unit_query.value(4)))
+                self.source_select.addItem(QIcon(QPixmap(PATH_HERO(unit_query.value(5)))), f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", (unit_query.value(0), unit_query.value(4)))
             if unit_query.value(1) == self.target_affiliation or unit_query.value(3) == 1 - self.target_affiliation or (unit_query.value(2) and self.target_affiliation):
-                self.target_select.addItem(f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", (unit_query.value(0), unit_query.value(4)))
-        self.source_select.currentTextChanged.connect(self.updateMainQuery)
-        self.target_select.currentTextChanged.connect(self.updateMainQuery)
+                self.target_select.addItem(QIcon(QPixmap(PATH_HERO(unit_query.value(5)))), f"{'(pet) ' if unit_query.value(2) and not unit_query.value(3) else ''}{unit_query.value(0)}", (unit_query.value(0), unit_query.value(4)))
         if self.source_current:
+            #This does not work for some reason?
+            '''
             index = self.source_select.findData(self.source_current)
             self.source_select.setCurrentIndex(0 if index == -1 else index)
+            '''
+            for i in range(self.source_select.count()):
+                if self.source_select.itemData(i) == self.source_current:
+                    self.source_select.setCurrentIndex(i)
         else:
             self.source_select.setCurrentIndex(0)
         if self.target_current:
+            #Likewise
+            '''
             index = self.target_select.findData(self.target_current)
             self.target_select.setCurrentIndex(0 if index == -1 else index)
+            '''
+            for i in range(self.target_select.count()):
+                if self.target_select.itemData(i) == self.target_current:
+                    self.target_select.setCurrentIndex(i)        
+        else:
+            self.target_select.setCurrentIndex(0)
         self.updateMainQuery()
+        self.source_select.currentTextChanged.connect(self.updateMainQuery)
+        self.target_select.currentTextChanged.connect(self.updateMainQuery)
 
     def resetSourceSelection(self):
         self.source_select.setCurrentIndex(0)
