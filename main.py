@@ -60,6 +60,8 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(self.centralWidget)
         self.main_vbox = QVBoxLayout(self.centralWidget)
         self.file_name = None
+        self.setUpMainWindow()
+        self.graph.hide()
         self.show()
 
     def createActions(self):
@@ -111,53 +113,43 @@ class MainWindow(QMainWindow):
     def openParse(self):
         self.file_name, _ = QFileDialog.getOpenFileName(self, "Select parse", "parses/", "Databases (*.db)")
         if self.file_name:
-            self.db = QSqlDatabase.addDatabase("QSQLITE")
-            self.db.setDatabaseName(self.file_name)
-            if not self.db.open():
+            DB.setDatabaseName(self.file_name)
+            if not DB.open():
                 print("Unable to open data source file.")
                 sys.exit(1)
             tables_needed = {"events", "encounters", "actors"}
-            tables_not_found = tables_needed - set(self.db.tables())
+            tables_not_found = tables_needed - set(DB.tables())
             if tables_not_found:
                 QMessageBox.critical(None, "Error", f"<p>The following tables are missing from the database: {tables_not_found}</p>")
                 sys.exit(1)
-            self.setUpMainWindow()
+            self.setUpParse()
     
     def setUpMainWindow(self):
-        QSqlQuery(f"ATTACH DATABASE '{SPELL_DATA_PATH}' AS spell_db").exec()
         self.create_pet_editing_window = None
         self.encounter_select = QComboBox()
-        self.main_vbox.addWidget(self.encounter_select)
-        encounter_query = QSqlQuery()
-        encounter_query.exec("SELECT enemy, timeStart, timeEnd, isKill FROM encounters ORDER BY timeStart")
-        while (encounter_query.next()):
-            self.encounter_select.addItem(f"{encounter_query.value(0)} ({'kill' if encounter_query.value(3) else 'wipe'}) - {encounter_query.value(1)} | {encounter_query.value(2)}", (encounter_query.value(1), encounter_query.value(2)))
-        self.encounter_select.currentTextChanged.connect(self.updateMainQuery)
-        self.encounter_select.currentTextChanged.connect(self.updateUnitList)
-
         self.meter_select = QComboBox()
-        self.main_vbox.addWidget(self.meter_select)
-        self.meter_select.addItems(METERS)
-        self.meter_select.currentTextChanged.connect(self.updateUnitList)
-
         self.source_select = QComboBox()
-        self.source_select.currentTextChanged.connect(self.updateMainQuery)
         self.target_select = QComboBox()
-        self.target_select.currentTextChanged.connect(self.updateMainQuery)
-        self.source_current = FRIENDLY
-        self.target_current = HOSTILE
-        self.source_affiliation = 1
-        self.target_affiliation = 0
         self.source_clear_button = QPushButton("X", self)
         self.source_clear_button.setMaximumSize(24, 24)
         self.source_clear_button.clicked.connect(self.resetSourceSelection)
         self.target_clear_button = QPushButton("X", self)
         self.target_clear_button.setMaximumSize(24, 24)
         self.target_clear_button.clicked.connect(self.resetTargetSelection)
-        self.actors_swap_button = QPushButton(AFFILIATION[self.source_affiliation], self)
+        self.actors_swap_button = QPushButton(self)
         self.actors_swap_button.setMaximumSize(75, 24)
         self.actors_swap_button.clicked.connect(self.swapAffiliation)
+        self.graph = pg.PlotWidget()
+        self.table = QTableView()
+        self.table.setAlternatingRowColors(True)
+        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.table.clicked.connect(self.tableClicked)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
+        self.model = QSqlTableModel() #to be removed
+
+        self.main_vbox.addWidget(self.encounter_select)
+        self.main_vbox.addWidget(self.meter_select)
         self.actors_hbox = QHBoxLayout()
         self.actors_hbox.addWidget(self.source_clear_button)
         self.actors_hbox.addWidget(self.source_select)
@@ -165,17 +157,33 @@ class MainWindow(QMainWindow):
         self.actors_hbox.addWidget(self.target_select)
         self.actors_hbox.addWidget(self.target_clear_button)
         self.main_vbox.addLayout(self.actors_hbox)
-
-        self.graph = pg.PlotWidget()
         self.main_vbox.addWidget(self.graph)
-
-        self.model = QSqlTableModel()
-        self.table = QTableView()
-        self.table.setAlternatingRowColors(True)
-        self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        self.table.clicked.connect(self.tableClicked)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
         self.main_vbox.addWidget(self.table)
+    
+    def setUpParse(self):
+        QSqlQuery(f"ATTACH DATABASE '{SPELL_DATA_PATH}' AS spell_db").exec()
+
+        self.encounter_select.disconnect()
+        self.meter_select.disconnect()
+        self.source_select.disconnect()
+        self.target_select.disconnect()
+        
+        self.encounter_select.clear()
+        encounter_query = QSqlQuery("SELECT enemy, timeStart, timeEnd, isKill FROM encounters ORDER BY timeStart")
+        encounter_query.exec()
+        while encounter_query.next():
+            self.encounter_select.addItem(f"{encounter_query.value(0)} ({'kill' if encounter_query.value(3) else 'wipe'}) - {encounter_query.value(1)} | {encounter_query.value(2)}", (encounter_query.value(1), encounter_query.value(2)))
+        self.meter_select.addItems(METERS)
+        self.source_current = FRIENDLY
+        self.target_current = HOSTILE
+        self.source_affiliation = 1
+        self.target_affiliation = 0
+        self.actors_swap_button.setText(AFFILIATION[self.source_affiliation])
+
+        self.encounter_select.currentTextChanged.connect(self.updateUnitList)
+        self.meter_select.currentTextChanged.connect(self.updateUnitList)
+        self.source_select.currentTextChanged.connect(self.updateMainQuery)
+        self.target_select.currentTextChanged.connect(self.updateMainQuery)
 
         self.updateUnitList()
         print('setup done')
@@ -599,5 +607,6 @@ if __name__ == '__main__':
     app = QApplication(sys.argv)
     app.setStyleSheet(style_sheet)
     DELEGATES = {meter: {True: meterDelegate(meter, True), False: meterDelegate(meter, False)} for meter in METERS}
+    DB = QSqlDatabase.addDatabase("QSQLITE")
     window = MainWindow()
     sys.exit(app.exec())
