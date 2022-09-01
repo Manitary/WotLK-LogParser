@@ -294,13 +294,13 @@ class MainWindow(QMainWindow):
         self.table.hideColumn(ICON_COL[meter][everyone])
         self.table.hideColumn(ICON_COL[meter][everyone] + 1)
 
-    def queryDeaths(self, meter, timestamp = None):
+    def queryDeaths(self, meter, timestamp = None, unitName = None):
         display_query = QSqlQuery()
         everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
-        if timestamp:
-            with open('queries/deaths_1.sql', 'r') as f:
+        if timestamp and unitName:
+            with open('queries/deaths_recap.sql', 'r') as f:
                 display_query.prepare(f.read())
-            display_query.bindValue(":targetName", self.source_select.currentText())
+            display_query.bindValue(":targetName", unitName)
             display_query.bindValue(":endTime", timestamp)
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
@@ -320,7 +320,18 @@ class MainWindow(QMainWindow):
             for i in range(5, 9):
                 self.table.hideColumn(i)
         else:
-            self.source_select.setCurrentIndex(0)
+            with open('queries/deaths_1.sql', 'r') as f:
+                display_query.prepare(f.read())
+            display_query.bindValue(":affiliation", self.source_affiliation)
+            display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+            display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+            display_query.bindValue(":targetGUID", self.source_select.currentData()[1])
+            display_query.exec()
+            self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
+            self.table.setModel(deathSqlTableModel(display_query))
+            for i in range(5, 9):
+                self.table.hideColumn(i)
+
 
     def queryBuffs(self):
         q = QSqlQuery()
@@ -369,7 +380,6 @@ class MainWindow(QMainWindow):
         self.updateTargetAffiliation()
         self.source_select.addItem(f"All {AFFILIATION[self.source_affiliation]}", AFFILIATION[self.source_affiliation])
         self.target_select.addItem(f"All {AFFILIATION[self.target_affiliation]}", AFFILIATION[self.target_affiliation])
-
         unit_query = QSqlQuery()
         with open('queries/find_actors.sql', 'r') as f:
             unit_query.prepare(f.read())
@@ -432,13 +442,13 @@ class MainWindow(QMainWindow):
         if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
             self.source_select.setCurrentIndex(new_source)
         elif self.meter_select.currentText() == DEATHS:
-            ts = item.siblingAtColumn(5).data()
-            print(ts)
+            timestamp = item.siblingAtColumn(5).data()
+            unitName = item.siblingAtColumn(1).data()
             #Hacky disconnect, may want to revisit the source list selector (and add death timestamp to the data)
             self.source_select.disconnect()
-            self.source_select.setCurrentIndex(self.source_select.findText(item.siblingAtColumn(1).data()))
+            self.source_select.setCurrentIndex(self.source_select.findText(unitName))
             self.source_select.currentTextChanged.connect(self.updateMainQuery)
-            self.queryDeaths(DEATHS, ts)
+            self.queryDeaths(DEATHS, timestamp, unitName)
         elif self.meter_select.currentText() == BUFFS:
             self.plotAuraGraph(item.siblingAtColumn(4).data())
     
