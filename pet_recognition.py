@@ -76,6 +76,7 @@ temporary_pet_spells = {
     'Mirror Image2': (58832,),
     'Mirror Image3': (58833,),
     'Mirror Image4': (58834,),
+    'Summon Water Elemental': (31687,),
     #Shaman
     'Cleansing Totem': (8170,),
     'Earth Elemental Totem': (2062,),
