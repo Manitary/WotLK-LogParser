@@ -147,6 +147,11 @@ class MainWindow(QMainWindow):
         self.table.clicked.connect(self.tableClicked)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
+        self.encounter_select.currentTextChanged.connect(self.updateUnitList)
+        self.meter_select.currentTextChanged.connect(self.updateUnitList)
+        self.source_select.currentTextChanged.connect(self.updateMainQuery)
+        self.target_select.currentTextChanged.connect(self.updateMainQuery)
+
         self.model = QSqlTableModel() #to be removed
 
         self.main_vbox.addWidget(self.encounter_select)
@@ -164,12 +169,14 @@ class MainWindow(QMainWindow):
     def setUpParse(self):
         QSqlQuery(f"ATTACH DATABASE '{SPELL_DATA_PATH}' AS spell_db").exec()
 
-        self.encounter_select.disconnect()
-        self.meter_select.disconnect()
-        self.source_select.disconnect()
-        self.target_select.disconnect()
-
+        self.encounter_select.blockSignals(True)
+        self.meter_select.blockSignals(True)
+        self.source_select.blockSignals(True)
+        self.target_select.blockSignals(True)
         self.encounter_select.clear()
+        self.source_select.clear()
+        self.target_select.clear()
+
         encounter_query = QSqlQuery("SELECT enemy, timeStart, timeEnd, isKill FROM encounters ORDER BY timeStart")
         encounter_query.exec()
         while encounter_query.next():
@@ -180,10 +187,10 @@ class MainWindow(QMainWindow):
         self.target_affiliation = 0
         self.actors_swap_button.setText(AFFILIATION[self.source_affiliation])
 
-        self.encounter_select.currentTextChanged.connect(self.updateUnitList)
-        self.meter_select.currentTextChanged.connect(self.updateUnitList)
-        self.source_select.currentTextChanged.connect(self.updateMainQuery)
-        self.target_select.currentTextChanged.connect(self.updateMainQuery)
+        self.encounter_select.blockSignals(False)
+        self.meter_select.blockSignals(False)
+        self.source_select.blockSignals(False)
+        self.target_select.blockSignals(False)
 
         self.updateUnitList()
         print('setup done')
@@ -332,7 +339,6 @@ class MainWindow(QMainWindow):
             for i in range(5, 9):
                 self.table.hideColumn(i)
 
-
     def queryBuffs(self):
         q = QSqlQuery()
         with open('queries/buffs_taken_1-all.sql', 'r') as f:
@@ -369,8 +375,8 @@ class MainWindow(QMainWindow):
         self.model.setQuery(display_query)
 
     def updateUnitList(self):
-        self.source_select.disconnect()
-        self.target_select.disconnect()
+        self.source_select.blockSignals(True)
+        self.target_select.blockSignals(True)
         if self.source_select.currentData():
             self.source_current = self.source_select.currentData()
         if self.target_select.currentData():
@@ -415,8 +421,8 @@ class MainWindow(QMainWindow):
         else:
             self.target_select.setCurrentIndex(0)
         self.updateMainQuery()
-        self.source_select.currentTextChanged.connect(self.updateMainQuery)
-        self.target_select.currentTextChanged.connect(self.updateMainQuery)
+        self.source_select.blockSignals(False)
+        self.source_select.blockSignals(False)
 
     def resetSourceSelection(self):
         self.source_select.setCurrentIndex(0)
@@ -444,10 +450,9 @@ class MainWindow(QMainWindow):
         elif self.meter_select.currentText() == DEATHS:
             timestamp = item.siblingAtColumn(5).data()
             unitName = item.siblingAtColumn(1).data()
-            #Hacky disconnect, may want to revisit the source list selector (and add death timestamp to the data)
-            self.source_select.disconnect()
+            self.source_select.blockSignals(True)
             self.source_select.setCurrentIndex(self.source_select.findText(unitName))
-            self.source_select.currentTextChanged.connect(self.updateMainQuery)
+            self.source_select.blockSignals(False)
             self.queryDeaths(DEATHS, timestamp, unitName)
         elif self.meter_select.currentText() == BUFFS:
             self.plotAuraGraph(item.siblingAtColumn(4).data())
