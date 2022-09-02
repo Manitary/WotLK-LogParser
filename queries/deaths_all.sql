@@ -10,6 +10,7 @@ SELECT
     , spec
     , icon
     , school
+    , id
 FROM (
     SELECT
         LAST_VALUE(e.timestamp) OVER (
@@ -62,6 +63,11 @@ FROM (
             ORDER BY e.id
             RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
         ) AS school
+        , LAST_VALUE(e.id) OVER (
+            PARTITION BY ed.timestamp, ed.targetName
+            ORDER BY e.id
+            RANGE BETWEEN CURRENT ROW AND UNBOUNDED FOLLOWING
+        ) AS id
     FROM events e
     JOIN (
         SELECT
@@ -100,5 +106,5 @@ FROM (
         OR  specs.timestamp IS NULL
     )
 )
-GROUP BY time
-ORDER BY time
+GROUP BY time, name
+ORDER BY time, id
