@@ -5,7 +5,7 @@ JOIN actors
 ON auras.targetGUID = actors.unitGUID
 WHERE
     sourceGUID = :sourceGUID
-AND auraType = 'BUFF'
+AND auraType = :auraType
 AND (
         timeStart <= :endTime
     OR  timeStart IS NULL

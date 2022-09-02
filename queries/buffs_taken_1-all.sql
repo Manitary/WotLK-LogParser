@@ -3,7 +3,7 @@ SELECT
 FROM auras
 WHERE
     targetGUID = :targetGUID
-AND auraType = 'BUFF'
+AND auraType = :auraType
 AND (
         timeStart <= :endTime
     OR  timeStart IS NULL

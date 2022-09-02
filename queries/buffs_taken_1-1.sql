@@ -4,7 +4,7 @@ FROM auras
 WHERE
     targetGUID = :targetGUID
 AND sourceGUID = :sourceGUID
-AND auraType = 'BUFF'
+AND auraType = :auraType
 AND (
         timeStart <= :endTime
     OR  timeStart IS NULL

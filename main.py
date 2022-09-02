@@ -206,8 +206,8 @@ class MainWindow(QMainWindow):
             self.queryHealing(meter)
         elif meter == DEATHS:
             self.queryDeaths(meter)
-        elif meter == BUFFS:
-            self.queryBuffs()
+        elif meter in (BUFFS, DEBUFFS):
+            self.queryBuffs(meter)
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
@@ -336,14 +336,15 @@ class MainWindow(QMainWindow):
             for i in range(5, 9):
                 self.table.hideColumn(i)
 
-    def queryBuffs(self):
+    def queryBuffs(self, meter):
         everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         self.table.setItemDelegateForColumn(2, auraDelegate())
         startTime = self.encounter_select.currentData()[0]
         endTime = self.encounter_select.currentData()[1]
+        auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
         q = QSqlQuery()
         if everyone:
-            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == 'BUFF' else 1 - self.source_affiliation]:
                 with open('queries/buffs_taken_all-all.sql', 'r') as f:
                     q.prepare(f.read())
             else:
@@ -352,7 +353,7 @@ class MainWindow(QMainWindow):
                 q.bindValue(':sourceGUID', self.target_select.currentData()[1])
             q.bindValue(":affiliation", self.source_affiliation)
         else:
-            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]: 
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == 'BUFF' else 1 - self.source_affiliation]: 
                 with open('queries/buffs_taken_1-all.sql', 'r') as f:
                     q.prepare(f.read())
             else:
@@ -362,6 +363,7 @@ class MainWindow(QMainWindow):
             q.bindValue(":targetGUID", self.source_select.currentData()[1])
         q.bindValue(":startTime", startTime)
         q.bindValue(":endTime", endTime)
+        q.bindValue(":auraType", auraType)
         q.exec()
         self.auras_current = {}
         while q.next():
