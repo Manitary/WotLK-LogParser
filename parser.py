@@ -38,7 +38,7 @@ class parse:
         #self.populateEncounters()
         #self.assignPets()
         #self.testQueries()
-        #self.populateAuras()
+        self.populateAuras()
         #self.assignSpecs()
         self.db.close()
     
@@ -419,17 +419,17 @@ class parse:
         q.bindValue(':path', SPELL_DATA_PATH)
         q.exec()
         auras = QSqlQuery()
-        auras.exec("SELECT DISTINCT sourceGUID, targetGUID, spellID, spellName, auraType FROM events WHERE eventName LIKE 'SPELL_AURA_%'")
+        auras.exec("SELECT DISTINCT sourceGUID, targetGUID, spellID, spellName, auraType, spellSchool FROM events WHERE eventName LIKE 'SPELL_AURA_%'")
         find = QSqlQuery()
         find.prepare("SELECT eventName, timestamp FROM events WHERE sourceGUID = :sourceGUID AND targetGUID = :targetGUID AND spellID = :spellID AND auraType = :auraType AND eventName LIKE 'SPELL_AURA_%' ORDER BY timestamp")
         duration = QSqlQuery()
         duration.prepare("SELECT duration FROM spell_db.spell_data WHERE spellID = :spellID")
         new_aura = QSqlQuery()
-        new_aura.prepare("INSERT INTO auras (spellName, spellID, sourceGUID, targetGUID, auraType, timeStart, timeEnd, eventType) VALUES (:spellName, :spellID, :sourceGUID, :targetGUID, :auraType, :timeStart, :timeEnd, :eventType)")
+        new_aura.prepare("INSERT INTO auras (spellName, spellID, spellSchool, sourceGUID, targetGUID, auraType, timeStart, timeEnd, eventType) VALUES (:spellName, :spellID, :spellSchool, :sourceGUID, :targetGUID, :auraType, :timeStart, :timeEnd, :eventType)")
         try:
             while auras.next():
-                sourceGUID, targetGUID, spellID, spellName, auraType = auras.value(0), auras.value(1), auras.value(2), auras.value(3), auras.value(4)
-                print(f"Current batch: {spellName} ({spellID}) - {sourceGUID} -> {targetGUID}")
+                sourceGUID, targetGUID, spellID, spellName, auraType, spellSchool = auras.value(0), auras.value(1), auras.value(2), auras.value(3), auras.value(4), auras.value(5)
+                print(f"Current batch: {spellName} ({spellID}) - {sourceGUID} -> {targetGUID} - ({spellSchool}, {auraType})")
                 duration.bindValue(':spellID', spellID)
                 duration.exec()
                 duration.next()
@@ -503,6 +503,7 @@ class parse:
                 new_aura.bindValue(':sourceGUID', sourceGUID)
                 new_aura.bindValue(':targetGUID', targetGUID)
                 new_aura.bindValue(':auraType', auraType)
+                new_aura.bindValue(':spellSchool', spellSchool)
                 for x in data:
                     new_aura.bindValue(':timeStart', x[0])
                     new_aura.bindValue(':timeEnd', x[1])

@@ -1,8 +1,8 @@
-import sys, os
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QTextEdit, QFileDialog, QInputDialog, QFontDialog, QColorDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHeaderView, QHBoxLayout, QAbstractItemView, QPushButton, QSizePolicy, QAbstractItemDelegate, QStyledItemDelegate
+import sys, os, re
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate
 from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
-from PyQt6.QtCore import Qt, QTime, QRectF
+from PyQt6.QtCore import Qt, QRectF
 import pyqtgraph as pg
 from tools import flattenIntervals, plotAuras
 import time, datetime
@@ -35,7 +35,6 @@ BAR_OFFSET_Y = 6
 PATH_HERO = lambda icon: f"wow_hero_classes/{icon}.png" if icon else ''
 PATH_SPELL = lambda icon: f"wow_icon/{icon.lower()}.jpg" if icon else ''
 MELEE_ICON = 'inv_axe_01'
-
 
 style_sheet = '''
 QTableView {
@@ -338,40 +337,58 @@ class MainWindow(QMainWindow):
                 self.table.hideColumn(i)
 
     def queryBuffs(self):
-        self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
-        q = QSqlQuery()
-        with open('queries/buffs_taken_1-all.sql', 'r') as f:
-            q.prepare(f.read())
-        q.bindValue(":startTime", self.encounter_select.currentData()[0])
-        q.bindValue(":endTime", self.encounter_select.currentData()[1])
-        q.bindValue(":targetGUID", self.source_select.currentData()[1])
-        q.exec()
-        self.auras_current = {}
-        while q.next():
-            if q.value(1) not in self.auras_current:
-                self.auras_current[q.value(1)] = {'spellName': q.value(0), 'intervals': []}
-            self.auras_current[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
-        encounter_length = timeparse(self.encounter_select.currentData()[1]) - timeparse(self.encounter_select.currentData()[0])
-        q.exec("DROP TABLE IF EXISTS temp_buff")
-        q.exec("CREATE TEMP TABLE temp_buff (spellID MEDIUMINT UNSIGNED UNIQUE NOT NULL, spellName VARCHAR(50), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT)")
-        q.prepare("INSERT INTO temp_buff (spellID, spellName, count, uptime, uptimepct) VALUES (:spellID, :spellName, :count, :uptime, :uptimepct)")
-        for k in self.auras_current:
-            self.auras_current[k]['count'] = len(self.auras_current[k]['intervals'])
-            self.auras_current[k]['intervals'] = flattenIntervals(self.auras_current[k]['intervals'])
-            uptime = datetime.timedelta()
-            for x in self.auras_current[k]['intervals']:
-                uptime += timeparse(x[1]) - timeparse(x[0])
-            self.auras_current[k]['uptime'] = uptime
-            self.auras_current[k]['uptimepct'] = uptime / encounter_length * 100
-            q.bindValue(':spellID', k)
-            q.bindValue(':spellName', self.auras_current[k]['spellName'])
-            q.bindValue(':count', self.auras_current[k]['count'])
-            q.bindValue(':uptime', str(self.auras_current[k]['uptime']))
-            q.bindValue(':uptimepct', self.auras_current[k]['uptimepct'])
+        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+        if not everyone:
+            self.table.setItemDelegateForColumn(2, auraDelegate())
+            startTime = self.encounter_select.currentData()[0]
+            endTime = self.encounter_select.currentData()[1]
+            q = QSqlQuery()
+            with open('queries/buffs_taken_1-all.sql', 'r') as f:
+                q.prepare(f.read())
+            q.bindValue(":startTime", startTime)
+            q.bindValue(":endTime", endTime)
+            q.bindValue(":targetGUID", self.source_select.currentData()[1])
             q.exec()
-        display_query = QSqlQuery()
-        display_query.exec("SELECT spellName, uptimepct, uptime, count, spellID FROM temp_buff ORDER BY uptimepct DESC")
-        self.model.setQuery(display_query)
+            self.auras_current = {}
+            while q.next():
+                if q.value(1) not in self.auras_current:
+                    self.auras_current[q.value(1)] = {'spellName': q.value(0), 'intervals': []}
+                self.auras_current[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
+            t0 = timeparse(startTime)
+            encounter_length = timeparse(endTime) - t0
+            q.exec("DROP TABLE IF EXISTS temp_buff")
+            q.exec("CREATE TEMP TABLE temp_buff (spellID MEDIUMINT UNSIGNED UNIQUE NOT NULL, spellName VARCHAR(50), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT, intervals VARCHAR, maxlen FLOAT, spellSchool TINYINT UNSIGNED, icon VARCHAR(50))")
+            q.prepare("INSERT INTO temp_buff (spellID, spellName, count, uptime, uptimepct, intervals, maxlen, spellSchool, icon) VALUES (:spellID, :spellName, :count, :uptime, :uptimepct, :intervals, :maxlen, :spellSchool, :icon)")
+            q.bindValue(':maxlen', encounter_length.total_seconds())
+            spellInfo = QSqlQuery()
+            spellInfo.prepare("SELECT school_mask, icon FROM spell_db.spell_data WHERE spellID = :spellID")
+            for k in self.auras_current:
+                self.auras_current[k]['count'] = len(self.auras_current[k]['intervals'])
+                self.auras_current[k]['intervals'] = flattenIntervals(self.auras_current[k]['intervals'])
+                self.auras_current[k]['intervals'] = [(timeparse(x[0]), timeparse(x[1])) for x in self.auras_current[k]['intervals']]
+                uptime = datetime.timedelta()
+                for x in self.auras_current[k]['intervals']:
+                    uptime += x[1] - x[0]
+                self.auras_current[k]['uptime'] = uptime
+                self.auras_current[k]['uptimepct'] = uptime / encounter_length * 100
+                self.auras_current[k]['intervals'] = [((x[0] - t0).total_seconds(), (x[1] - t0).total_seconds()) for x in self.auras_current[k]['intervals']]
+                q.bindValue(':spellID', k)
+                q.bindValue(':spellName', self.auras_current[k]['spellName'])
+                q.bindValue(':count', self.auras_current[k]['count'])
+                q.bindValue(':uptime', str(self.auras_current[k]['uptime']))
+                q.bindValue(':uptimepct', self.auras_current[k]['uptimepct'])
+                q.bindValue(':intervals', f"{self.auras_current[k]['intervals']}")
+                spellInfo.bindValue(':spellID', k)
+                spellInfo.exec()
+                spellInfo.next()
+                q.bindValue(':spellSchool', spellInfo.value(0))
+                q.bindValue(':icon', spellInfo.value(1))
+                q.exec()
+            display_query = QSqlQuery()
+            display_query.exec("SELECT spellName, PRINTF('%.2f%%', uptimepct) AS pct, intervals, count, uptime, spellID, maxlen, spellSchool, icon FROM temp_buff ORDER BY uptime DESC, spellName")
+            self.table.setModel(auraSqlTableModel(display_query))
+            for i in range(4, 9):
+                self.table.hideColumn(i)
 
     def updateUnitList(self):
         self.source_select.blockSignals(True)
@@ -454,7 +471,8 @@ class MainWindow(QMainWindow):
             self.source_select.blockSignals(False)
             self.queryDeaths(DEATHS, timestamp, unitName)
         elif self.meter_select.currentText() == BUFFS:
-            self.plotAuraGraph(item.siblingAtColumn(4).data())
+            #self.plotAuraGraph(item.siblingAtColumn(5).data())
+            pass
     
     def plotAuraGraph(self, spellID):
         x0, x1, x_Left, x_Width = plotAuras(self.encounter_select.currentData()[0], self.encounter_select.currentData()[1], self.auras_current[spellID]['intervals'])
@@ -623,13 +641,45 @@ class meterDelegate(QAbstractItemDelegate):
         except:
             pass
 
-class deathDelegate(QAbstractItemDelegate):
-    def __init__(self, everyone):
+class auraDelegate(QAbstractItemDelegate):
+    def __init__(self):
         super().__init__()
-        self.everyone = everyone
-    
+
     def paint(self, painter, option, index):
-        pass
+        intervals = re.findall(r"\((\d+\.\d+), (\d+\.\d+)\)", index.data(Qt.ItemDataRole.DisplayRole))
+        x = option.rect.topLeft().x() + BAR_OFFSET_X
+        y = option.rect.topLeft().y() + BAR_OFFSET_Y
+        h = option.rect.bottomLeft().y() - y - BAR_OFFSET_Y
+        w = option.rect.topRight().x() - x - BAR_OFFSET_X
+        l = float(index.siblingAtColumn(6).data())
+        painter.setPen(Qt.PenStyle.NoPen)
+        try:
+            painter.setBrush(QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1]))
+        except:
+            painter.setBrush(QBrush(Qt.GlobalColor.gray))
+        for i in intervals:
+            x0, x1 = float(i[0]), float(i[1])
+            painter.drawRect(QRectF(x + (x0 / l * w), y, (x1 - x0) / l * w, h))
+
+class auraSqlTableModel(QSqlTableModel):
+    def __init__(self, query, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setQuery(query)
+
+    def data(self, index, role):
+        if index.column() == 0:
+            if role == Qt.ItemDataRole.DecorationRole:
+                if (icon := QSqlTableModel.data(self, index.siblingAtColumn(8), Qt.ItemDataRole.DisplayRole)):
+                    return QPixmap(PATH_SPELL(icon)).scaledToHeight(25)
+            elif role == Qt.ItemDataRole.ForegroundRole:
+                try:
+                    return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1])
+                except:
+                    pass
+        elif index.column() == 1 and role == Qt.ItemDataRole.TextAlignmentRole:
+            #return Qt.AlignmentFlag.AlignRight
+            return 130
+        return QSqlTableModel.data(self, index, role)
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
