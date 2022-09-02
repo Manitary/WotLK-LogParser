@@ -223,7 +223,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/damage_done_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentText())
+                display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":affiliation", self.source_affiliation)
         else:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
@@ -232,7 +232,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/damage_done_1-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentText())
+                display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":sourceName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
@@ -281,7 +281,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/healing_done_all-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentText())
+                display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":affiliation", self.source_affiliation)
         else:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
@@ -290,7 +290,7 @@ class MainWindow(QMainWindow):
             else:
                 with open('queries/healing_done_1-1.sql', 'r') as f:
                     display_query.prepare(f.read())
-                    display_query.bindValue(":targetName", self.target_select.currentText())
+                display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":sourceName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
         display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
@@ -338,19 +338,28 @@ class MainWindow(QMainWindow):
 
     def queryBuffs(self):
         everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
-        #if not everyone:
         self.table.setItemDelegateForColumn(2, auraDelegate())
         startTime = self.encounter_select.currentData()[0]
         endTime = self.encounter_select.currentData()[1]
         q = QSqlQuery()
         if everyone:
-            with open('queries/buffs_taken_all-all.sql', 'r') as f:
-                q.prepare(f.read())
-                q.bindValue(":affiliation", self.source_affiliation)
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
+                with open('queries/buffs_taken_all-all.sql', 'r') as f:
+                    q.prepare(f.read())
+            else:
+                with open('queries/buffs_taken_all-1.sql', 'r') as f:
+                    q.prepare(f.read())
+                q.bindValue(':sourceGUID', self.target_select.currentData()[1])
+            q.bindValue(":affiliation", self.source_affiliation)
         else:
-            with open('queries/buffs_taken_1-all.sql', 'r') as f:
-                q.prepare(f.read())
-                q.bindValue(":targetGUID", self.source_select.currentData()[1])
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]: 
+                with open('queries/buffs_taken_1-all.sql', 'r') as f:
+                    q.prepare(f.read())
+            else:
+                with open('queries/buffs_taken_1-1.sql', 'r') as f:
+                    q.prepare(f.read())
+                q.bindValue(':sourceGUID', self.target_select.currentData()[1])
+            q.bindValue(":targetGUID", self.source_select.currentData()[1])
         q.bindValue(":startTime", startTime)
         q.bindValue(":endTime", endTime)
         q.exec()
@@ -443,7 +452,7 @@ class MainWindow(QMainWindow):
             self.target_select.setCurrentIndex(0)
         self.updateMainQuery()
         self.source_select.blockSignals(False)
-        self.source_select.blockSignals(False)
+        self.target_select.blockSignals(False)
 
     def resetSourceSelection(self):
         self.source_select.setCurrentIndex(0)
