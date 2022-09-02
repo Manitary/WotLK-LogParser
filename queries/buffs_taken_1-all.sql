@@ -1,15 +1,14 @@
 SELECT
     spellName, spellID, COALESCE(MAX(timeStart, :startTime), :startTime), COALESCE(MIN(timeEnd, :endTime), :endTime)
-FROM
-    auras
+FROM auras
 WHERE
     targetGUID = :targetGUID
 AND auraType = 'BUFF'
 AND (
-    timeStart <= :endTime
-OR  timeStart IS NULL
+        timeStart <= :endTime
+    OR  timeStart IS NULL
 )
 AND (
-    timeEnd >= :startTime
-OR  timeEnd IS NULL
+        timeEnd >= :startTime
+    OR  timeEnd IS NULL
 )

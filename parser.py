@@ -33,7 +33,7 @@ class parse:
         self.createConnection()
         if not self.duplicate:
             self.populateDB()
-        self.populateDB()
+        #self.populateDB()
         #self.populateActors()
         #self.populateEncounters()
         #self.assignPets()
@@ -378,8 +378,6 @@ class parse:
             print(tq.value(0), tq.value(1))
 
     def assignSpecs(self):
-        print('test')
-
         query = QSqlQuery()
         query.exec('DROP TABLE specs')
         with open('queries/specs.sql', 'r') as f:
@@ -411,12 +409,6 @@ class parse:
                     getSpec.bindValue(':timestamp', timeStart)
                     getSpec.bindValue(':spec', f"{class_recognition.spell_spec[spellID]['class']}-{class_recognition.spell_spec[spellID]['spec']}")
                     getSpec.exec()
-
-        test = QSqlQuery()
-        test.exec('SELECT actors.unitName, specs.spec, encounters.enemy FROM specs JOIN actors ON specs.unitGUID = actors.unitGUID JOIN encounters ON specs.timestamp = encounters.timestart')
-        #test.exec('SELECT * FROM specs')
-        while test.next():
-            print(test.value(0), test.value(1), test.value(2), test.value(3))
 
     def populateAuras(self):
         q = QSqlQuery()

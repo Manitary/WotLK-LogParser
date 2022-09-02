@@ -302,6 +302,7 @@ class MainWindow(QMainWindow):
         self.table.hideColumn(ICON_COL[meter][everyone] + 1)
 
     def queryDeaths(self, meter, timestamp = None, unitName = None):
+        self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
         display_query = QSqlQuery()
         everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         if timestamp and unitName:
@@ -311,7 +312,6 @@ class MainWindow(QMainWindow):
             display_query.bindValue(":endTime", timestamp)
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
-            self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
             self.table.setModel(deathLogSqlTableModel(display_query))
             for i in range(4, 7):
                 self.table.hideColumn(i)
@@ -322,7 +322,6 @@ class MainWindow(QMainWindow):
             display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
-            self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
             self.table.setModel(deathSqlTableModel(display_query))
             for i in range(5, 9):
                 self.table.hideColumn(i)
@@ -334,12 +333,12 @@ class MainWindow(QMainWindow):
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.bindValue(":targetGUID", self.source_select.currentData()[1])
             display_query.exec()
-            self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
             self.table.setModel(deathSqlTableModel(display_query))
             for i in range(5, 9):
                 self.table.hideColumn(i)
 
     def queryBuffs(self):
+        self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
         q = QSqlQuery()
         with open('queries/buffs_taken_1-all.sql', 'r') as f:
             q.prepare(f.read())
