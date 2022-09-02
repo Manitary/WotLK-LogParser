@@ -311,7 +311,7 @@ class MainWindow(QMainWindow):
             display_query.bindValue(":endTime", timestamp)
             display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
             display_query.exec()
-            self.table.setModel(deathLogSqlTableModel(display_query))
+            self.table.setModel(deathRecapSqlTableModel(display_query))
             for i in range(4, 7):
                 self.table.hideColumn(i)
         elif everyone:
@@ -558,7 +558,7 @@ class deathSqlTableModel(QSqlTableModel):
             return 130
         return QSqlTableModel.data(self, index, role)
 
-class deathLogSqlTableModel(QSqlTableModel):
+class deathRecapSqlTableModel(QSqlTableModel):
     def __init__(self, query, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setQuery(query)
@@ -584,7 +584,7 @@ class deathLogSqlTableModel(QSqlTableModel):
         elif index.column() == 2:
             if role == Qt.ItemDataRole.ForegroundRole:
                 try:
-                    colour = class_recognition.getSchoolColours(int(index.siblingAtColumn(6).data()))[-1]
+                    colour = class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1]
                     return QBrush(colour)
                 except:
                     pass
