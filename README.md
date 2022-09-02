@@ -78,7 +78,11 @@ Death log of a unit
 
 Death recap
 
-![Death recap](https://i.imgur.com/V0D18gA.png)
+![Death recap](https://i.imgur.com/4KDNtYw.png)
+
+Buff uptime
+
+![Buff uptime](https://i.imgur.com/jrOAFid.png)
 
 Manual pet assignment
 
