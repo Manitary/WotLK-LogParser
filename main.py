@@ -344,7 +344,7 @@ class MainWindow(QMainWindow):
         auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
         q = QSqlQuery()
         if everyone:
-            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == 'BUFF' else 1 - self.source_affiliation]:
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
                 with open('queries/buffs_taken_all-all.sql', 'r') as f:
                     q.prepare(f.read())
             else:
@@ -353,7 +353,7 @@ class MainWindow(QMainWindow):
                 q.bindValue(':sourceGUID', self.target_select.currentData()[1])
             q.bindValue(":affiliation", self.source_affiliation)
         else:
-            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == 'BUFF' else 1 - self.source_affiliation]: 
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]: 
                 with open('queries/buffs_taken_1-all.sql', 'r') as f:
                     q.prepare(f.read())
             else:
