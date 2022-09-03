@@ -14,6 +14,9 @@ ALL = "AllUnits"
 FRIENDLY = "Friendlies"
 HOSTILE = "Enemies"
 AFFILIATION = [HOSTILE, FRIENDLY]
+GAINED = "Gained"
+APPLIED = "Cast"
+DIRECTION = [GAINED, APPLIED]
 DAMAGEDONE = "Damage Done"
 DAMAGETAKEN = "Damage Taken"
 HEALING = "Healing"
@@ -60,6 +63,7 @@ class MainWindow(QMainWindow):
         self.main_vbox = QVBoxLayout(self.centralWidget)
         self.file_name = None
         self.setUpMainWindow()
+        self.direction_swap_button.hide()
         self.graph.hide()
         self.show()
 
@@ -139,6 +143,9 @@ class MainWindow(QMainWindow):
         self.actors_swap_button = QPushButton(self)
         self.actors_swap_button.setMaximumSize(75, 24)
         self.actors_swap_button.clicked.connect(self.swapAffiliation)
+        self.direction_swap_button = QPushButton(self)
+        self.direction_swap_button.setMaximumSize(75, 24)
+        self.direction_swap_button.clicked.connect(self.swapDirection)
         self.graph = pg.PlotWidget()
         self.table = QTableView()
         self.table.setAlternatingRowColors(True)
@@ -162,6 +169,9 @@ class MainWindow(QMainWindow):
         self.actors_hbox.addWidget(self.target_select)
         self.actors_hbox.addWidget(self.target_clear_button)
         self.main_vbox.addLayout(self.actors_hbox)
+        self.extra_hbox = QHBoxLayout()
+        self.extra_hbox.addWidget(self.direction_swap_button)
+        self.main_vbox.addLayout(self.extra_hbox)
         self.main_vbox.addWidget(self.graph)
         self.main_vbox.addWidget(self.table)
     
@@ -185,6 +195,8 @@ class MainWindow(QMainWindow):
         self.source_affiliation = 1
         self.target_affiliation = 0
         self.actors_swap_button.setText(AFFILIATION[self.source_affiliation])
+        self.direction = 0
+        self.direction_swap_button.setText(DIRECTION[self.direction])
 
         self.encounter_select.blockSignals(False)
         self.meter_select.blockSignals(False)
@@ -196,6 +208,7 @@ class MainWindow(QMainWindow):
 
     def updateMainQuery(self):
         meter = self.meter_select.currentText()
+        self.direction_swap_button.hide()
         self.graph.hide()
         self.table.setModel(self.model)
         if meter == DAMAGEDONE:
@@ -337,27 +350,29 @@ class MainWindow(QMainWindow):
                 self.table.hideColumn(i)
 
     def queryBuffs(self, meter):
+        self.direction_swap_button.show()
         everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         self.table.setItemDelegateForColumn(2, auraDelegate())
         startTime = self.encounter_select.currentData()[0]
         endTime = self.encounter_select.currentData()[1]
         auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
+        direction = 'given' if self.direction else 'gained'
         q = QSqlQuery()
         if everyone:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
-                with open('queries/buffs_taken_all-all.sql', 'r') as f:
+                with open(f"queries/buffs_{direction}_all-all.sql", 'r') as f:
                     q.prepare(f.read())
             else:
-                with open('queries/buffs_taken_all-1.sql', 'r') as f:
+                with open(f"queries/buffs_{direction}_all-1.sql", 'r') as f:
                     q.prepare(f.read())
                 q.bindValue(':sourceGUID', self.target_select.currentData()[1])
             q.bindValue(":affiliation", self.source_affiliation)
         else:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]: 
-                with open('queries/buffs_taken_1-all.sql', 'r') as f:
+                with open(f"queries/buffs_{direction}_1-all.sql", 'r') as f:
                     q.prepare(f.read())
             else:
-                with open('queries/buffs_taken_1-1.sql', 'r') as f:
+                with open(f"queries/buffs_{direction}_1-1.sql", 'r') as f:
                     q.prepare(f.read())
                 q.bindValue(':sourceGUID', self.target_select.currentData()[1])
             q.bindValue(":targetGUID", self.source_select.currentData()[1])
@@ -466,6 +481,11 @@ class MainWindow(QMainWindow):
         self.source_affiliation = 1 - self.source_affiliation
         self.actors_swap_button.setText(AFFILIATION[self.source_affiliation])
         self.updateUnitList()
+
+    def swapDirection(self):
+        self.direction = 1 - self.direction
+        self.direction_swap_button.setText(DIRECTION[self.direction])
+        self.updateUnitList() #mainquery?
     
     def updateTargetAffiliation(self):
         meter = self.meter_select.currentText()
