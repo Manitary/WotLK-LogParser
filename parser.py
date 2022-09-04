@@ -38,7 +38,7 @@ class parse:
         #self.populateEncounters()
         #self.assignPets()
         #self.testQueries()
-        self.populateAuras()
+        #self.populateAuras()
         #self.assignSpecs()
         self.db.close()
     
@@ -384,7 +384,7 @@ class parse:
             query.exec(f.read())
 
         getSpec = QSqlQuery()
-        getSpec.prepare("INSERT INTO specs (unitGUID, timestamp, spec) VALUES (:unitGUID, :timestamp, :spec)")
+        getSpec.prepare("INSERT INTO specs (unitGUID, timestamp, unitName, spec) VALUES (:unitGUID, :timestamp, :unitName, :spec)")
 
         getEncounters = QSqlQuery()
         getEncounters.exec("SELECT timeStart, timeEnd, enemy FROM encounters")
@@ -407,6 +407,7 @@ class parse:
                     print(enemy, getPlayerSpells.value(3), getPlayerSpells.value(4))
                     getSpec.bindValue(':unitGUID', sourceGUID)
                     getSpec.bindValue(':timestamp', timeStart)
+                    getSpec.bindValue(':unitName', getPlayerSpells.value(3))
                     getSpec.bindValue(':spec', f"{class_recognition.spell_spec[spellID]['class']}-{class_recognition.spell_spec[spellID]['spec']}")
                     getSpec.exec()
 
