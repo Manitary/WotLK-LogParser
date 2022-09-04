@@ -1,6 +1,6 @@
 import sys, os, re
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView
-from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon
+from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon, QStandardItemModel, QStandardItem
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt, QRectF
 import pyqtgraph as pg
@@ -11,11 +11,12 @@ import zipfile, rarfile
 import parser, pet_recognition, class_recognition
 
 ALL = "AllUnits"
+ALL_AURAS = "All auras"
 FRIENDLY = "Friendlies"
 HOSTILE = "Enemies"
 AFFILIATION = [HOSTILE, FRIENDLY]
-GAINED = "Gained"
-APPLIED = "Cast"
+GAINED = "gained"
+APPLIED = "given"
 DIRECTION = [GAINED, APPLIED]
 DAMAGEDONE = "Damage Done"
 DAMAGETAKEN = "Damage Taken"
@@ -64,6 +65,8 @@ class MainWindow(QMainWindow):
         self.file_name = None
         self.setUpMainWindow()
         self.direction_swap_button.hide()
+        self.spell_clear_button.hide()
+        self.spell_select.hide()
         self.graph.hide()
         self.show()
 
@@ -132,6 +135,7 @@ class MainWindow(QMainWindow):
         self.encounter_select = QComboBox()
         self.meter_select = QComboBox()
         self.meter_select.addItems(METERS)
+
         self.source_select = QComboBox()
         self.target_select = QComboBox()
         self.source_clear_button = QPushButton("X", self)
@@ -143,9 +147,16 @@ class MainWindow(QMainWindow):
         self.actors_swap_button = QPushButton(self)
         self.actors_swap_button.setMaximumSize(75, 24)
         self.actors_swap_button.clicked.connect(self.swapAffiliation)
+
         self.direction_swap_button = QPushButton(self)
         self.direction_swap_button.setMaximumSize(75, 24)
         self.direction_swap_button.clicked.connect(self.swapDirection)
+        self.spell_clear_button = QPushButton("X", self)
+        self.spell_clear_button.setMaximumSize(24, 24)
+        self.spell_clear_button.clicked.connect(self.resetSpellSelection)
+        self.spell_select = QComboBox()
+        self.spell_select.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+
         self.graph = pg.PlotWidget()
         self.table = QTableView()
         self.table.setAlternatingRowColors(True)
@@ -157,6 +168,7 @@ class MainWindow(QMainWindow):
         self.meter_select.currentTextChanged.connect(self.updateUnitList)
         self.source_select.currentTextChanged.connect(self.updateMainQuery)
         self.target_select.currentTextChanged.connect(self.updateMainQuery)
+        self.spell_select.currentIndexChanged.connect(self.updateMainQuery)
 
         self.model = QSqlTableModel() #to be removed
 
@@ -171,6 +183,8 @@ class MainWindow(QMainWindow):
         self.main_vbox.addLayout(self.actors_hbox)
         self.extra_hbox = QHBoxLayout()
         self.extra_hbox.addWidget(self.direction_swap_button)
+        self.extra_hbox.addWidget(self.spell_clear_button)
+        self.extra_hbox.addWidget(self.spell_select)
         self.main_vbox.addLayout(self.extra_hbox)
         self.main_vbox.addWidget(self.graph)
         self.main_vbox.addWidget(self.table)
@@ -182,9 +196,11 @@ class MainWindow(QMainWindow):
         self.meter_select.blockSignals(True)
         self.source_select.blockSignals(True)
         self.target_select.blockSignals(True)
+        self.spell_select.blockSignals(True)
         self.encounter_select.clear()
         self.source_select.clear()
         self.target_select.clear()
+        self.spell_select.clear()
 
         encounter_query = QSqlQuery("SELECT enemy, timeStart, timeEnd, isKill FROM encounters ORDER BY timeStart")
         encounter_query.exec()
@@ -197,11 +213,15 @@ class MainWindow(QMainWindow):
         self.actors_swap_button.setText(AFFILIATION[self.source_affiliation])
         self.direction = 0
         self.direction_swap_button.setText(DIRECTION[self.direction])
+        self.spell_current = ALL_AURAS
+        self.spell_select.addItem(self.spell_current)
+        self.spell_select.setCurrentIndex(0)
 
         self.encounter_select.blockSignals(False)
         self.meter_select.blockSignals(False)
         self.source_select.blockSignals(False)
         self.target_select.blockSignals(False)
+        self.spell_select.blockSignals(False)
 
         self.updateUnitList()
         print('setup done')
@@ -209,6 +229,8 @@ class MainWindow(QMainWindow):
     def updateMainQuery(self):
         meter = self.meter_select.currentText()
         self.direction_swap_button.hide()
+        self.spell_clear_button.hide()
+        self.spell_select.hide()
         self.graph.hide()
         self.table.setModel(self.model)
         if meter == DAMAGEDONE:
@@ -220,7 +242,15 @@ class MainWindow(QMainWindow):
         elif meter == DEATHS:
             self.queryDeaths(meter)
         elif meter in (BUFFS, DEBUFFS):
-            self.queryBuffs(meter)
+            self.spell_select.blockSignals(True)
+            self.populateAuraSelector()
+            self.spell_select.blockSignals(False)
+            if self.spell_select.currentIndex() <= 0:
+                self.spell_select.blockSignals(True)
+                self.queryBuffs(meter)
+                self.spell_select.blockSignals(False)
+            elif self.spell_select.currentIndex() > 0:
+                self.querySingleBuff(meter)
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
@@ -351,12 +381,14 @@ class MainWindow(QMainWindow):
 
     def queryBuffs(self, meter):
         self.direction_swap_button.show()
+        self.spell_clear_button.show()
+        self.spell_select.show()
         everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         self.table.setItemDelegateForColumn(2, auraDelegate())
         startTime = self.encounter_select.currentData()[0]
         endTime = self.encounter_select.currentData()[1]
         auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
-        direction = 'given' if self.direction else 'gained'
+        direction = APPLIED if self.direction else GAINED
         q = QSqlQuery()
         if everyone:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
@@ -380,10 +412,9 @@ class MainWindow(QMainWindow):
         q.bindValue(":endTime", endTime)
         q.bindValue(":auraType", auraType)
         q.exec()
-        self.auras_current = {}
+        for k in self.auras_current:
+            self.auras_current[k]['intervals'] = []
         while q.next():
-            if q.value(1) not in self.auras_current:
-                self.auras_current[q.value(1)] = {'spellName': q.value(0), 'intervals': []}
             self.auras_current[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
         t0 = timeparse(startTime)
         encounter_length = timeparse(endTime) - t0
@@ -391,8 +422,6 @@ class MainWindow(QMainWindow):
         q.exec("CREATE TEMP TABLE temp_buff (spellID MEDIUMINT UNSIGNED UNIQUE NOT NULL, spellName VARCHAR(50), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT, intervals VARCHAR, maxlen FLOAT, spellSchool TINYINT UNSIGNED, icon VARCHAR(50))")
         q.prepare("INSERT INTO temp_buff (spellID, spellName, count, uptime, uptimepct, intervals, maxlen, spellSchool, icon) VALUES (:spellID, :spellName, :count, :uptime, :uptimepct, :intervals, :maxlen, :spellSchool, :icon)")
         q.bindValue(':maxlen', encounter_length.total_seconds())
-        spellInfo = QSqlQuery()
-        spellInfo.prepare("SELECT school_mask, icon FROM spell_db.spell_data WHERE spellID = :spellID")
         for k in self.auras_current:
             self.auras_current[k]['count'] = len(self.auras_current[k]['intervals'])
             self.auras_current[k]['intervals'] = flattenIntervals(self.auras_current[k]['intervals'])
@@ -409,17 +438,95 @@ class MainWindow(QMainWindow):
             q.bindValue(':uptime', str(self.auras_current[k]['uptime']))
             q.bindValue(':uptimepct', self.auras_current[k]['uptimepct'])
             q.bindValue(':intervals', f"{self.auras_current[k]['intervals']}")
-            spellInfo.bindValue(':spellID', k)
-            spellInfo.exec()
-            spellInfo.next()
-            q.bindValue(':spellSchool', spellInfo.value(0))
-            q.bindValue(':icon', spellInfo.value(1))
+            q.bindValue(':spellSchool', self.auras_current[k]['school'])
+            q.bindValue(':icon', self.auras_current[k]['icon'])
             q.exec()
-            display_query = QSqlQuery()
-            display_query.exec("SELECT spellName, PRINTF('%.2f%%', uptimepct) AS pct, intervals, count, uptime, spellID, maxlen, spellSchool, icon FROM temp_buff ORDER BY uptime DESC, spellName")
-            self.table.setModel(auraSqlTableModel(display_query))
-            for i in range(4, 9):
-                self.table.hideColumn(i)
+        display_query = QSqlQuery()
+        display_query.exec("SELECT spellName, PRINTF('%.2f%%', uptimepct) AS pct, intervals, count, uptime, spellID, maxlen, spellSchool, icon FROM temp_buff ORDER BY uptime DESC, spellName")
+        self.table.setModel(auraSqlTableModel(display_query))
+        for i in range(4, 9):
+            self.table.hideColumn(i)
+    
+    def querySingleBuff(self, meter):
+        self.direction_swap_button.show()
+        self.spell_clear_button.show()
+        self.spell_select.show()
+        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+        self.table.setItemDelegateForColumn(2, auraDelegate(False))
+        startTime = self.encounter_select.currentData()[0]
+        endTime = self.encounter_select.currentData()[1]
+        auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
+        spellID = int(self.spell_select.model().data(self.spell_select.model().index(self.spell_select.currentIndex(), 1)))
+        direction = APPLIED if self.direction else GAINED
+        q = QSqlQuery()
+        if everyone:
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
+                with open(f"queries/buff_{direction}_all-all.sql", 'r') as f:
+                    q.prepare(f.read())
+            else:
+                with open(f"queries/buff_{direction}_all-1.sql", 'r') as f:
+                    q.prepare(f.read())
+                q.bindValue(':sourceGUID', self.target_select.currentData()[1])
+            q.bindValue(":affiliation", self.source_affiliation)
+        else:
+            if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]: 
+                with open(f"queries/buff_{direction}_1-all.sql", 'r') as f:
+                    q.prepare(f.read())
+            else:
+                with open(f"queries/buff_{direction}_1-1.sql", 'r') as f:
+                    q.prepare(f.read())
+                q.bindValue(':sourceGUID', self.target_select.currentData()[1])
+            q.bindValue(":targetGUID", self.source_select.currentData()[1])
+        q.bindValue(":startTime", startTime)
+        q.bindValue(":endTime", endTime)
+        q.bindValue(":auraType", auraType)
+        q.bindValue(":spellID", spellID)
+        q.exec()
+        self.aura_current = {}
+        while q.next():
+            sourceGUID, targetGUID, t0, t1 = q.value(0), q.value(1), q.value(2), q.value(3)
+            if (everyone and not self.direction) or (not everyone and self.direction):
+                if targetGUID not in self.aura_current:
+                    self.aura_current[targetGUID] = {'sourceGUID': sourceGUID, 'intervals': []}
+                self.aura_current[targetGUID]['intervals'].append((t0, t1))
+            else:
+                if sourceGUID not in self.aura_current:
+                    self.aura_current[sourceGUID] = {'targetGUID': targetGUID, 'intervals': []}
+                self.aura_current[sourceGUID]['intervals'].append((t0, t1))
+        t0 = timeparse(startTime)
+        encounter_length = timeparse(endTime) - t0
+        q.exec("DROP TABLE IF EXISTS temp_buff")
+        q.exec("CREATE TEMP TABLE temp_buff (unitGUID VARBINARY UNIQUE NOT NULL, unitName VARCHAR(50), spec VARCHAR(10), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT, intervals VARCHAR, maxlen FLOAT)")
+        q.prepare("INSERT INTO temp_buff (unitGUID, unitName, spec, count, uptime, uptimepct, intervals, maxlen) VALUES (:unitGUID, :unitName, :spec, :count, :uptime, :uptimepct, :intervals, :maxlen)")
+        q.bindValue(':maxlen', encounter_length.total_seconds())
+        unitInfo = QSqlQuery()
+        unitInfo.prepare("SELECT a.unitName AS unitName, spec FROM actors a LEFT JOIN specs ON a.unitGUID = specs.unitGUID WHERE a.unitGUID = :unitGUID")
+        for k in self.aura_current:
+            self.aura_current[k]['count'] = len(self.aura_current[k]['intervals'])
+            self.aura_current[k]['intervals'] = flattenIntervals(self.aura_current[k]['intervals'])
+            self.aura_current[k]['intervals'] = [(timeparse(x[0]), timeparse(x[1])) for x in self.aura_current[k]['intervals']]
+            uptime = datetime.timedelta()
+            for x in self.aura_current[k]['intervals']:
+                uptime += x[1] - x[0]
+            self.aura_current[k]['uptime'] = uptime
+            self.aura_current[k]['uptimepct'] = uptime / encounter_length * 100
+            self.aura_current[k]['intervals'] = [((x[0] - t0).total_seconds(), (x[1] - t0).total_seconds()) for x in self.aura_current[k]['intervals']]
+            q.bindValue(':unitGUID', k)
+            q.bindValue(':count', self.aura_current[k]['count'])
+            q.bindValue(':uptime', str(self.aura_current[k]['uptime']))
+            q.bindValue(':uptimepct', self.aura_current[k]['uptimepct'])
+            q.bindValue(':intervals', f"{self.aura_current[k]['intervals']}")
+            unitInfo.bindValue(':unitGUID', k)
+            unitInfo.exec()
+            unitInfo.next()
+            q.bindValue(':unitName', unitInfo.value(0))
+            q.bindValue(':spec', unitInfo.value(1))
+            q.exec()
+        display_query = QSqlQuery()
+        display_query.exec("SELECT unitName, PRINTF('%.2f%%', uptimepct) AS pct, intervals, count, uptime, unitGUID, maxlen, spec FROM temp_buff ORDER BY uptime DESC, unitName")
+        self.table.setModel(auraSqlTableModel(display_query, False))
+        for i in range(4, 8):
+            self.table.hideColumn(i)
 
     def updateUnitList(self):
         self.source_select.blockSignals(True)
@@ -454,6 +561,7 @@ class MainWindow(QMainWindow):
             for i in range(self.source_select.count()):
                 if self.source_select.itemData(i) == self.source_current:
                     self.source_select.setCurrentIndex(i)
+                    break
         else:
             self.source_select.setCurrentIndex(0)
         if self.target_current:
@@ -464,7 +572,8 @@ class MainWindow(QMainWindow):
             '''
             for i in range(self.target_select.count()):
                 if self.target_select.itemData(i) == self.target_current:
-                    self.target_select.setCurrentIndex(i)        
+                    self.target_select.setCurrentIndex(i)
+                    break
         else:
             self.target_select.setCurrentIndex(0)
         self.updateMainQuery()
@@ -497,19 +606,41 @@ class MainWindow(QMainWindow):
             self.target_affiliation = 0
 
     def tableClicked(self, item):
-        if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
-            self.source_select.setCurrentIndex(new_source)
-        elif self.meter_select.currentText() == DEATHS:
+        meter = self.meter_select.currentText()
+        if meter in (DAMAGEDONE, DAMAGETAKEN, HEALING):
+            if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
+                self.source_select.setCurrentIndex(new_source)
+        elif meter == DEATHS:
             timestamp = item.siblingAtColumn(5).data()
             unitName = item.siblingAtColumn(1).data()
             self.source_select.blockSignals(True)
             self.source_select.setCurrentIndex(self.source_select.findText(unitName))
             self.source_select.blockSignals(False)
             self.queryDeaths(DEATHS, timestamp, unitName)
-        elif self.meter_select.currentText() == BUFFS:
-            #self.plotAuraGraph(item.siblingAtColumn(5).data())
-            pass
-    
+        elif meter in (BUFFS, DEBUFFS):
+            name = item.siblingAtColumn(0).data()
+            everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+            if self.direction:
+                if everyone and (new_source := self.source_select.findText(name)) != -1:
+                        self.source_select.setCurrentIndex(new_source)
+                elif (new_target := self.target_select.findText(name)) != -1:
+                        self.target_select.setCurrentIndex(new_target)
+                else:
+                    for i in range(self.spell_select.count()):
+                        if self.spell_select.model().index(i,1).data() == str(item.siblingAtColumn(5).data()):
+                            self.spell_select.setCurrentIndex(i)
+                            break
+            else:
+                if everyone and (new_source := self.source_select.findText(name)) != -1:
+                        self.source_select.setCurrentIndex(new_source)
+                elif (new_target := self.target_select.findText(name)) != -1:
+                        self.target_select.setCurrentIndex(new_target)
+                else:
+                    for i in range(self.spell_select.count()):
+                        if self.spell_select.model().index(i,1).data() == str(item.siblingAtColumn(5).data()):
+                            self.spell_select.setCurrentIndex(i)
+                            break
+
     def plotAuraGraph(self, spellID):
         x0, x1, x_Left, x_Width = plotAuras(self.encounter_select.currentData()[0], self.encounter_select.currentData()[1], self.auras_current[spellID]['intervals'])
         self.graph.clear()
@@ -527,6 +658,73 @@ class MainWindow(QMainWindow):
             else:
                 self.create_pet_editing_window = pet_recognition.PetEditing(self)
                 self.create_pet_editing_window.show()
+
+    def populateAuraSelector(self):
+        spell_current = self.spell_select.model().index(self.spell_select.currentIndex(),1).data()
+        self.direction_swap_button.show()
+        self.spell_clear_button.show()
+        self.spell_select.show()
+        meter = self.meter_select.currentText()
+        if meter in (BUFFS, DEBUFFS):
+            everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+            startTime = self.encounter_select.currentData()[0]
+            endTime = self.encounter_select.currentData()[1]
+            auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
+            direction = APPLIED if self.direction else GAINED
+            q = QSqlQuery()
+            if everyone:
+                if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
+                    with open(f"queries/buffs_{direction}_all-all.sql", 'r') as f:
+                        q.prepare(f.read())
+                else:
+                    with open(f"queries/buffs_{direction}_all-1.sql", 'r') as f:
+                        q.prepare(f.read())
+                    q.bindValue(':sourceGUID', self.target_select.currentData()[1])
+                q.bindValue(":affiliation", self.source_affiliation)
+            else:
+                if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]: 
+                    with open(f"queries/buffs_{direction}_1-all.sql", 'r') as f:
+                        q.prepare(f.read())
+                else:
+                    with open(f"queries/buffs_{direction}_1-1.sql", 'r') as f:
+                        q.prepare(f.read())
+                    q.bindValue(':sourceGUID', self.target_select.currentData()[1])
+                q.bindValue(":targetGUID", self.source_select.currentData()[1])
+            q.bindValue(":startTime", startTime)
+            q.bindValue(":endTime", endTime)
+            q.bindValue(":auraType", auraType)
+            q.exec()
+            self.auras_current = {}
+            while q.next():
+                if q.value(1) not in self.auras_current:
+                    self.auras_current[q.value(1)] = {'spellName': q.value(0), 'school': q.value(4), 'icon': q.value(5)}
+            model = QStandardItemModel()
+            model.appendRow(QStandardItem(ALL_AURAS))
+            for i in sorted(self.auras_current.keys(), key = lambda x : self.auras_current[x]['spellName']):
+                name = QStandardItem(QIcon(QPixmap(PATH_SPELL(self.auras_current[i]['icon']))), self.auras_current[i]['spellName'])
+                name.setForeground(QBrush(class_recognition.getSchoolColours(self.auras_current[i]['school'])[-1]))
+                spellID = QStandardItem(str(i))
+                model.appendRow([name, spellID])
+            table = QTableView()
+            table.setModel(model)
+            table.verticalHeader().setVisible(False)
+            table.horizontalHeader().setVisible(False)
+            table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            table.setColumnWidth(1, 50)
+            self.spell_select.setModel(model)
+            self.spell_select.setView(table)
+
+            found = False
+            for i in range(self.spell_select.count()):
+                if self.spell_select.model().index(i,1).data() == spell_current:
+                    self.spell_select.setCurrentIndex(i)
+                    found = True
+                    break
+            if not found:
+                self.spell_select.setCurrentIndex(0)
+
+    def resetSpellSelection(self):
+        self.spell_select.setCurrentIndex(0)
 
 class meterSqlTableModel(QSqlTableModel):
     def __init__(self, query, meter, everyone, *args, **kwargs):
@@ -678,8 +876,9 @@ class meterDelegate(QAbstractItemDelegate):
             pass
 
 class auraDelegate(QAbstractItemDelegate):
-    def __init__(self):
+    def __init__(self, isSpell = True):
         super().__init__()
+        self.isSpell = isSpell
 
     def paint(self, painter, option, index):
         intervals = re.findall(r"\((\d+\.\d+), (\d+\.\d+)\)", index.data(Qt.ItemDataRole.DisplayRole))
@@ -689,29 +888,44 @@ class auraDelegate(QAbstractItemDelegate):
         w = option.rect.topRight().x() - x - BAR_OFFSET_X
         l = float(index.siblingAtColumn(6).data())
         painter.setPen(Qt.PenStyle.NoPen)
-        try:
-            painter.setBrush(QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1]))
-        except:
-            painter.setBrush(QBrush(Qt.GlobalColor.gray))
+        if self.isSpell:
+            try:
+                painter.setBrush(QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1]))
+            except:
+                painter.setBrush(QBrush(Qt.GlobalColor.gray))
+        else:
+            try:
+                painter.setBrush(QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(7).data()[:-2]]))
+            except:
+                painter.setBrush(QBrush(Qt.GlobalColor.gray))
         for i in intervals:
             x0, x1 = float(i[0]), float(i[1])
             painter.drawRect(QRectF(x + (x0 / l * w), y, (x1 - x0) / l * w, h))
 
 class auraSqlTableModel(QSqlTableModel):
-    def __init__(self, query, *args, **kwargs):
+    def __init__(self, query, isSpell = True, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.setQuery(query)
+        self.isSpell = isSpell
 
     def data(self, index, role):
         if index.column() == 0:
             if role == Qt.ItemDataRole.DecorationRole:
-                if (icon := QSqlTableModel.data(self, index.siblingAtColumn(8), Qt.ItemDataRole.DisplayRole)):
+                if self.isSpell and (icon := index.siblingAtColumn(8).data()):
                     return QPixmap(PATH_SPELL(icon)).scaledToHeight(25)
+                elif (icon := index.siblingAtColumn(7).data()):
+                    return QPixmap(PATH_HERO(icon)).scaledToHeight(25)
             elif role == Qt.ItemDataRole.ForegroundRole:
-                try:
-                    return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1])
-                except:
-                    pass
+                if self.isSpell:
+                    try:
+                        return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(7).data()))[-1])
+                    except:
+                        pass
+                else:
+                    try:
+                        return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(7).data()[:-2]])
+                    except:
+                        pass
         elif index.column() == 1 and role == Qt.ItemDataRole.TextAlignmentRole:
             #return Qt.AlignmentFlag.AlignRight
             return 130

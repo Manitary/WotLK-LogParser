@@ -1,15 +1,12 @@
 SELECT
-    spellName
-    , a.spellID
+    sourceGUID
+    , targetGUID
     , COALESCE(MAX(timeStart, :startTime), :startTime)
     , COALESCE(MIN(timeEnd, :endTime), :endTime)
-    , a.spellSchool
-    , s.icon
-FROM auras a
-JOIN spell_db.spell_data s
-ON a.spellID = s.spellID
+FROM auras
 WHERE
     sourceGUID = :targetGUID
+AND spellID = :spellID
 AND auraType = :auraType
 AND (
         timeStart <= :endTime
