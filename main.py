@@ -162,7 +162,6 @@ class MainWindow(QMainWindow):
         self.table.setAlternatingRowColors(True)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.clicked.connect(self.tableClicked)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
 
         self.encounter_select.currentTextChanged.connect(self.updateUnitList)
         self.meter_select.currentTextChanged.connect(self.updateUnitList)
@@ -284,6 +283,8 @@ class MainWindow(QMainWindow):
         self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
         self.table.hideColumn(ICON_COL[meter][everyone])
         self.table.hideColumn(ICON_COL[meter][everyone] + 1)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
     def queryDamageTaken(self, meter):
         display_query = QSqlQuery()
@@ -313,6 +314,8 @@ class MainWindow(QMainWindow):
         self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
         self.table.hideColumn(ICON_COL[meter][everyone])
         self.table.hideColumn(ICON_COL[meter][everyone] + 1)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
     def queryHealing(self, meter):
         display_query = QSqlQuery()
@@ -342,6 +345,8 @@ class MainWindow(QMainWindow):
         self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
         self.table.hideColumn(ICON_COL[meter][everyone])
         self.table.hideColumn(ICON_COL[meter][everyone] + 1)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
     def queryDeaths(self, meter, timestamp = None, unitName = None):
         self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
@@ -357,6 +362,7 @@ class MainWindow(QMainWindow):
             self.table.setModel(deathRecapSqlTableModel(display_query))
             for i in range(4, 7):
                 self.table.hideColumn(i)
+            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         elif everyone:
             with open('queries/deaths_all.sql', 'r') as f:
                 display_query.prepare(f.read())
@@ -367,6 +373,7 @@ class MainWindow(QMainWindow):
             self.table.setModel(deathSqlTableModel(display_query))
             for i in range(5, 10):
                 self.table.hideColumn(i)
+            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         else:
             with open('queries/deaths_1.sql', 'r') as f:
                 display_query.prepare(f.read())
@@ -378,6 +385,7 @@ class MainWindow(QMainWindow):
             self.table.setModel(deathSqlTableModel(display_query))
             for i in range(5, 9):
                 self.table.hideColumn(i)
+            self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
     def queryBuffs(self, meter):
         self.direction_swap_button.show()
@@ -446,7 +454,9 @@ class MainWindow(QMainWindow):
         self.table.setModel(auraSqlTableModel(display_query))
         for i in range(4, 9):
             self.table.hideColumn(i)
-    
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
     def querySingleBuff(self, meter):
         self.direction_swap_button.show()
         self.spell_clear_button.show()
@@ -527,6 +537,8 @@ class MainWindow(QMainWindow):
         self.table.setModel(auraSqlTableModel(display_query, False))
         for i in range(4, 8):
             self.table.hideColumn(i)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
     def updateUnitList(self):
         self.source_select.blockSignals(True)
@@ -710,7 +722,8 @@ class MainWindow(QMainWindow):
             table.verticalHeader().setVisible(False)
             table.horizontalHeader().setVisible(False)
             table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-            table.setColumnWidth(1, 50)
+            table.horizontalHeader().setStretchLastSection(True)
+
             self.spell_select.setModel(model)
             self.spell_select.setView(table)
 
