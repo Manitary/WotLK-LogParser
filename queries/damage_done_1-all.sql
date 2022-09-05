@@ -21,6 +21,8 @@ WITH calc AS (
         , CASE WHEN resisted > 0 THEN PRINTF('%,d (%2.2f%%)', resisted, resisted * 100.0 / (resisted + dmg + absorbed)) ELSE '-' END AS resisted
         , icon
         , school
+        , spellID
+        , sourceName
     FROM (
         SELECT
             IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
@@ -34,6 +36,7 @@ WITH calc AS (
             , SUM(critical) AS crit
             , icon
             , spellSchool AS school
+            , sourceName
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
@@ -84,10 +87,13 @@ SELECT
     , hit
     , numcasts
     , miss
+    , crit
     , absorbed
     , blocked
     , resisted
     , icon
     , school
+    , spellID
+    , sourceName
 FROM calc
 ORDER BY relpct DESC
