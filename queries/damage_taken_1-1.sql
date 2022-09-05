@@ -48,10 +48,10 @@ SELECT
     , pct / MAX(pct) OVER() AS relpct
     , PRINTF('%,d', dmg) AS dmg
     , hit
-    , PRINTF('%,d (%.2f%%)', miss, miss * 100 / (hit + miss)) AS miss
-    , PRINTF('%,d (%.2f%%)', absorbed, absorbed * 100 / (dmg + absorbed + blocked)) AS absorbed
-    , PRINTF('%,d (%.2f%%)', blocked, blocked * 100 / (dmg + absorbed + blocked)) AS blocked
-    , PRINTF('%,d (%.2f%%)', resisted, resisted * 100 / (dmg + absorbed + blocked)) AS resisted
+    , PRINTF('%,d (%.2f%%)', miss, miss * 100.0 / (hit + miss)) AS miss
+    , PRINTF('%,d (%.2f%%)', absorbed, absorbed * 100.0 / dmg) AS absorbed
+    , PRINTF('%,d (%.2f%%)', blocked, blocked * 100.0 / dmg) AS blocked
+    , PRINTF('%,d (%.2f%%)', resisted, resisted * 100.0 / dmg) AS resisted
     , crit
     , icon
     , school
