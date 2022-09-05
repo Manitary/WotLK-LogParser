@@ -55,7 +55,7 @@ class MainWindow(QMainWindow):
         self.initializeUI()
 
     def initializeUI(self):
-        self.setMinimumSize(600, 400)
+        self.setMinimumSize(800, 400)
         self.setWindowTitle("Parser")
         self.createActions()
         self.createMenu()
@@ -226,39 +226,38 @@ class MainWindow(QMainWindow):
         print('setup done')
 
     def updateMainQuery(self):
-        meter = self.meter_select.currentText()
+        self.updateStatus()
         self.direction_swap_button.hide()
         self.spell_clear_button.hide()
         self.spell_select.hide()
         self.graph.hide()
         self.table.setModel(self.model)
-        if meter == DAMAGEDONE:
-            self.queryDamageDone(meter)
-        elif meter == DAMAGETAKEN:
-            self.queryDamageTaken(meter)
-        elif meter == HEALING:
-            self.queryHealing(meter)
-        elif meter == DEATHS:
-            self.queryDeaths(meter)
-        elif meter in (BUFFS, DEBUFFS):
+        if self.meter == DAMAGEDONE:
+            self.queryDamageDone()
+        elif self.meter == DAMAGETAKEN:
+            self.queryDamageTaken()
+        elif self.meter == HEALING:
+            self.queryHealing()
+        elif self.meter == DEATHS:
+            self.queryDeaths()
+        elif self.meter in (BUFFS, DEBUFFS):
             self.spell_select.blockSignals(True)
             self.populateAuraSelector()
             self.spell_select.blockSignals(False)
             if self.spell_select.currentIndex() <= 0:
                 self.spell_select.blockSignals(True)
-                self.queryBuffs(meter)
+                self.queryBuffs()
                 self.spell_select.blockSignals(False)
             elif self.spell_select.currentIndex() > 0:
-                self.querySingleBuff(meter)
+                self.querySingleBuff()
         else:
             self.display_query = QSqlQuery()
             self.model.setQuery(self.display_query)
         print('query done')
 
-    def queryDamageDone(self, meter):
+    def queryDamageDone(self):
         display_query = QSqlQuery()
-        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
-        if everyone:
+        if self.everyone:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_done_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
@@ -276,20 +275,19 @@ class MainWindow(QMainWindow):
                     display_query.prepare(f.read())
                 display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":sourceName", self.source_select.currentText())
-        display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
-        display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+        display_query.bindValue(":startTime", self.startTime)
+        display_query.bindValue(":endTime", self.endTime)
         display_query.exec()
-        self.table.setItemDelegateForColumn(2, DELEGATES[meter][everyone])
-        self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
-        self.table.hideColumn(ICON_COL[meter][everyone])
-        self.table.hideColumn(ICON_COL[meter][everyone] + 1)
+        self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
+        self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
+        for i in range(ICON_COL[self.meter][self.everyone], self.table.horizontalHeader().count()):
+            self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-    def queryDamageTaken(self, meter):
+    def queryDamageTaken(self):
         display_query = QSqlQuery()
-        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
-        if everyone:
+        if self.everyone:
             if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
                 with open('queries/damage_taken_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
@@ -307,20 +305,19 @@ class MainWindow(QMainWindow):
                     display_query.prepare(f.read())
                     display_query.bindValue(":sourceName", self.target_select.currentText())
             display_query.bindValue(":targetName", self.source_select.currentText())
-        display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
-        display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+        display_query.bindValue(":startTime", self.startTime)
+        display_query.bindValue(":endTime", self.endTime)
         display_query.exec()
-        self.table.setItemDelegateForColumn(2, DELEGATES[meter][everyone])
-        self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
-        self.table.hideColumn(ICON_COL[meter][everyone])
-        self.table.hideColumn(ICON_COL[meter][everyone] + 1)
+        self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
+        self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
+        for i in range(ICON_COL[self.meter][self.everyone], self.table.horizontalHeader().count()):
+            self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-    def queryHealing(self, meter):
+    def queryHealing(self):
         display_query = QSqlQuery()
-        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
-        if everyone:
+        if self.everyone:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
                 with open('queries/healing_done_all-all.sql', 'r') as f:
                     display_query.prepare(f.read())
@@ -338,52 +335,51 @@ class MainWindow(QMainWindow):
                     display_query.prepare(f.read())
                 display_query.bindValue(":targetName", self.target_select.currentText())
             display_query.bindValue(":sourceName", self.source_select.currentText())
-        display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
-        display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+        display_query.bindValue(":startTime", self.startTime)
+        display_query.bindValue(":endTime", self.endTime)
         display_query.exec()
-        self.table.setItemDelegateForColumn(2, DELEGATES[meter][everyone])
-        self.table.setModel(meterSqlTableModel(display_query, meter, everyone))
-        self.table.hideColumn(ICON_COL[meter][everyone])
-        self.table.hideColumn(ICON_COL[meter][everyone] + 1)
+        self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
+        self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
+        for i in range(ICON_COL[self.meter][self.everyone], self.table.horizontalHeader().count()):
+            self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
 
-    def queryDeaths(self, meter, timestamp = None, unitName = None):
+    def queryDeaths(self, timestamp = None, unitName = None):
         self.table.setItemDelegateForColumn(2, QStyledItemDelegate())
         display_query = QSqlQuery()
-        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         if timestamp and unitName:
             with open('queries/deaths_recap.sql', 'r') as f:
                 display_query.prepare(f.read())
             display_query.bindValue(":targetName", unitName)
             display_query.bindValue(":endTime", timestamp)
-            display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+            display_query.bindValue(":startTime", self.startTime)
             display_query.exec()
             self.table.setModel(deathRecapSqlTableModel(display_query))
-            for i in range(4, 7):
+            for i in range(4, self.table.horizontalHeader().count()):
                 self.table.hideColumn(i)
             self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        elif everyone:
+        elif self.everyone:
             with open('queries/deaths_all.sql', 'r') as f:
                 display_query.prepare(f.read())
             display_query.bindValue(":affiliation", self.source_affiliation)
-            display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
-            display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+            display_query.bindValue(":endTime", self.endTime)
+            display_query.bindValue(":startTime", self.startTime)
             display_query.exec()
             self.table.setModel(deathSqlTableModel(display_query))
-            for i in range(5, 10):
+            for i in range(5, self.table.horizontalHeader().count()):
                 self.table.hideColumn(i)
             self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         else:
             with open('queries/deaths_1.sql', 'r') as f:
                 display_query.prepare(f.read())
             display_query.bindValue(":affiliation", self.source_affiliation)
-            display_query.bindValue(":endTime", self.encounter_select.currentData()[1])
-            display_query.bindValue(":startTime", self.encounter_select.currentData()[0])
+            display_query.bindValue(":endTime", self.endTime)
+            display_query.bindValue(":startTime", self.startTime)
             display_query.bindValue(":targetGUID", self.source_select.currentData()[1])
             display_query.exec()
             self.table.setModel(deathSqlTableModel(display_query))
-            for i in range(5, 9):
+            for i in range(5, self.table.horizontalHeader().count()):
                 self.table.hideColumn(i)
             self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
 
@@ -391,14 +387,11 @@ class MainWindow(QMainWindow):
         self.direction_swap_button.show()
         self.spell_clear_button.show()
         self.spell_select.show()
-        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         self.table.setItemDelegateForColumn(2, auraDelegate())
-        startTime = self.encounter_select.currentData()[0]
-        endTime = self.encounter_select.currentData()[1]
         auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
         direction = APPLIED if self.direction else GAINED
         q = QSqlQuery()
-        if everyone:
+        if self.everyone:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
                 with open(f"queries/buffs_{direction}_all-all.sql", 'r') as f:
                     q.prepare(f.read())
@@ -416,16 +409,16 @@ class MainWindow(QMainWindow):
                     q.prepare(f.read())
                 q.bindValue(':sourceGUID', self.target_select.currentData()[1])
             q.bindValue(":targetGUID", self.source_select.currentData()[1])
-        q.bindValue(":startTime", startTime)
-        q.bindValue(":endTime", endTime)
+        q.bindValue(":startTime", self.startTime)
+        q.bindValue(":endTime", self.endTime)
         q.bindValue(":auraType", auraType)
         q.exec()
         for k in self.auras_current:
             self.auras_current[k]['intervals'] = []
         while q.next():
             self.auras_current[q.value(1)]['intervals'].append((q.value(2), q.value(3)))
-        t0 = timeparse(startTime)
-        encounter_length = timeparse(endTime) - t0
+        t0 = timeparse(self.startTime)
+        encounter_length = timeparse(self.endTime) - t0
         q.exec("DROP TABLE IF EXISTS temp_buff")
         q.exec("CREATE TEMP TABLE temp_buff (spellID MEDIUMINT UNSIGNED UNIQUE NOT NULL, spellName VARCHAR(50), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT, intervals VARCHAR, maxlen FLOAT, spellSchool TINYINT UNSIGNED, icon VARCHAR(50))")
         q.prepare("INSERT INTO temp_buff (spellID, spellName, count, uptime, uptimepct, intervals, maxlen, spellSchool, icon) VALUES (:spellID, :spellName, :count, :uptime, :uptimepct, :intervals, :maxlen, :spellSchool, :icon)")
@@ -452,7 +445,7 @@ class MainWindow(QMainWindow):
         display_query = QSqlQuery()
         display_query.exec("SELECT spellName, PRINTF('%.2f%%', uptimepct) AS pct, intervals, count, uptime, spellID, maxlen, spellSchool, icon FROM temp_buff ORDER BY uptime DESC, spellName")
         self.table.setModel(auraSqlTableModel(display_query))
-        for i in range(4, 9):
+        for i in range(4, self.table.horizontalHeader().count()):
             self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -461,15 +454,12 @@ class MainWindow(QMainWindow):
         self.direction_swap_button.show()
         self.spell_clear_button.show()
         self.spell_select.show()
-        everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         self.table.setItemDelegateForColumn(2, auraDelegate(False))
-        startTime = self.encounter_select.currentData()[0]
-        endTime = self.encounter_select.currentData()[1]
         auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
         spellID = int(self.spell_select.model().data(self.spell_select.model().index(self.spell_select.currentIndex(), 1)))
         direction = APPLIED if self.direction else GAINED
         q = QSqlQuery()
-        if everyone:
+        if self.everyone:
             if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
                 with open(f"queries/buff_{direction}_all-all.sql", 'r') as f:
                     q.prepare(f.read())
@@ -487,15 +477,15 @@ class MainWindow(QMainWindow):
                     q.prepare(f.read())
                 q.bindValue(':sourceGUID', self.target_select.currentData()[1])
             q.bindValue(":targetGUID", self.source_select.currentData()[1])
-        q.bindValue(":startTime", startTime)
-        q.bindValue(":endTime", endTime)
+        q.bindValue(":startTime", self.startTime)
+        q.bindValue(":endTime", self.endTime)
         q.bindValue(":auraType", auraType)
         q.bindValue(":spellID", spellID)
         q.exec()
         self.aura_current = {}
         while q.next():
             sourceGUID, targetGUID, t0, t1 = q.value(0), q.value(1), q.value(2), q.value(3)
-            if (everyone and not self.direction) or (not everyone and self.direction):
+            if (self.everyone and not self.direction) or (not self.everyone and self.direction):
                 if targetGUID not in self.aura_current:
                     self.aura_current[targetGUID] = {'sourceGUID': sourceGUID, 'intervals': []}
                 self.aura_current[targetGUID]['intervals'].append((t0, t1))
@@ -503,8 +493,8 @@ class MainWindow(QMainWindow):
                 if sourceGUID not in self.aura_current:
                     self.aura_current[sourceGUID] = {'targetGUID': targetGUID, 'intervals': []}
                 self.aura_current[sourceGUID]['intervals'].append((t0, t1))
-        t0 = timeparse(startTime)
-        encounter_length = timeparse(endTime) - t0
+        t0 = timeparse(self.startTime)
+        encounter_length = timeparse(self.endTime) - t0
         q.exec("DROP TABLE IF EXISTS temp_buff")
         q.exec("CREATE TEMP TABLE temp_buff (unitGUID VARBINARY UNIQUE NOT NULL, unitName VARCHAR(50), spec VARCHAR(10), count SMALLINT UNSIGNED, uptime TIMESTAMP, uptimepct FLOAT, intervals VARCHAR, maxlen FLOAT)")
         q.prepare("INSERT INTO temp_buff (unitGUID, unitName, spec, count, uptime, uptimepct, intervals, maxlen) VALUES (:unitGUID, :unitName, :spec, :count, :uptime, :uptimepct, :intervals, :maxlen)")
@@ -535,10 +525,16 @@ class MainWindow(QMainWindow):
         display_query = QSqlQuery()
         display_query.exec("SELECT unitName, PRINTF('%.2f%%', uptimepct) AS pct, intervals, count, uptime, unitGUID, maxlen, spec FROM temp_buff ORDER BY uptime DESC, unitName")
         self.table.setModel(auraSqlTableModel(display_query, False))
-        for i in range(4, 8):
+        for i in range(4, self.table.horizontalHeader().count()):
             self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+
+    def updateStatus(self):
+        self.startTime = self.encounter_select.currentData()[0]
+        self.endTime = self.encounter_select.currentData()[1]
+        self.everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
+        self.meter = self.meter_select.currentText()
 
     def updateUnitList(self):
         self.source_select.blockSignals(True)
