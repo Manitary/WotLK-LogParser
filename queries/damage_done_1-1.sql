@@ -55,8 +55,7 @@ WITH calc AS (
             OR  eventName LIKE '%MISSED'
         )
         AND spellName IS NOT NULL
-        GROUP BY
-            sp
+        GROUP BY sp, s.spellID
     ) t
     LEFT JOIN (
         SELECT

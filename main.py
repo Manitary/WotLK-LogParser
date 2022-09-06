@@ -1039,7 +1039,7 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':startTime', self.startTime)
                 display_query.bindValue(':endTime', self.endTime)
 
-                print(display_query.exec())
+                display_query.exec()
                 self.tooltip_table.setItemDelegateForColumn(COLUMNS[meter][everyone][index.column()][BAR], meterDelegate(meter, everyone, index.column()))
                 self.tooltip_table.setModel(meterSqlTableModel(display_query, meter, everyone, index.column()))
                 self.tooltip_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
