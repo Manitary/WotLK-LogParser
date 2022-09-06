@@ -167,6 +167,10 @@ class parse:
                             query.bindValue(":missType", args[i])
                             if args[i] == 'ABSORB':
                                 query.bindValue(":absorbed", args[i+1])
+                            elif args[i] == 'RESIST':
+                                query.bindValue(":resisted", args[i+1])
+                            elif args[i] == 'BLOCK':
+                                query.bindValue(":blocked", args[i+1])
                         elif suffix.startswith('DI'): #DISPEL(_)
                             query.bindValue(":extraSpellID", int(args[i]))
                             query.bindValue(":extraSpellName", args[i+1][1:-1] if args[i+1] != 'nil' else None)
