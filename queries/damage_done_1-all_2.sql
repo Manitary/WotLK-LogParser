@@ -24,7 +24,10 @@ WITH calc AS (
         AND timestamp >= :startTime
         AND timestamp <= :endTime
         AND sourceName = :sourceName
-        AND eventName LIKE '%DAMAGE%'
+        AND (
+                eventName LIKE '%DAMAGE%'
+            OR  missType = 'ABSORBED'
+        )
         GROUP BY critical
     )
 )

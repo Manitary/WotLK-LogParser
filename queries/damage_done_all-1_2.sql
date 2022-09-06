@@ -25,8 +25,10 @@ WITH calc AS (
             OR  ownerName = :sourceName
         )
         AND events.targetName = :targetName
-        AND eventName LIKE '%DAMAGE%'
-        AND spellName IS NOT NULL
+        AND (
+                eventName LIKE '%DAMAGE%'
+            OR  missType = 'ABSORBED'
+        )
         GROUP BY sp, s.spellID
         ORDER BY dmg + absorbed DESC
     )

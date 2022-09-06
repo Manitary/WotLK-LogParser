@@ -22,7 +22,10 @@ WITH calc AS (
                 sourceName = :sourceName
             OR  ownerName = :sourceName
         )
-        AND eventName LIKE '%DAMAGE%'
+        AND (
+                eventName LIKE '%DAMAGE%'
+            OR  missType = 'ABSORBED'
+        )
         AND (
                 s.timestamp = :startTime
             OR  s.timestamp IS NULL

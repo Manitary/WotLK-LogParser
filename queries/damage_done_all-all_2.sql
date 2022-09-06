@@ -10,7 +10,7 @@ WITH calc AS (
             IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , SUM(amount) AS dmg
             , SUM(absorbed) AS absorbed
-            , icon
+            , icon  
             , spellSchool AS school
         FROM events
         LEFT JOIN pets
@@ -24,8 +24,10 @@ WITH calc AS (
                 sourceName = :sourceName
             OR  ownerName = :sourceName
         )
-        AND eventName LIKE '%DAMAGE%'
-        AND spellName IS NOT NULL
+        AND (
+                eventName LIKE '%DAMAGE%'
+            OR  missType = 'ABSORBED'
+        )
         GROUP BY sp, s.spellID
         ORDER BY dmg + absorbed DESC
     )

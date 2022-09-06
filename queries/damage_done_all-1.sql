@@ -13,26 +13,29 @@ WITH calc AS (
             , COALESCE(p.ownerGUID, s.sguid) AS owner
         FROM (
             SELECT
-                events.sourceName AS name
-                , SUM(events.amount) + SUM(events.absorbed) AS dmg
-                , events.sourceGUID AS sguid
+                sourceName AS name
+                , SUM(amount) + SUM(absorbed) AS dmg
+                , sourceGUID AS sguid
             FROM events
             JOIN actors
             ON events.sourceGUID = actors.unitGUID
             WHERE
-                events.timestamp >= :startTime
-            AND events.timestamp <= :endTime
+                timestamp >= :startTime
+            AND timestamp <= :endTime
             AND (
-                    actors.isPlayer = :affiliation
-                OR  actors.isPet = :affiliation
+                    isPlayer = :affiliation
+                OR  isPet = :affiliation
                 OR  (
                         :affiliation = 0
-                    AND actors.isNPC = 1
+                    AND isNPC = 1
                 )
             )
-            AND events.targetName = :targetName
-            AND events.eventName LIKE '%DAMAGE'
-            GROUP BY events.sourceGUID
+            AND targetName = :targetName
+            AND (
+                    eventName LIKE '%DAMAGE'
+                OR  missType = 'ABSORBED'
+            )
+            GROUP BY sourceGUID
         ) s
         LEFT JOIN pets p
         ON s.sguid = p.petGUID
