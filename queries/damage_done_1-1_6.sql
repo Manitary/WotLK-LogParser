@@ -10,16 +10,11 @@ WITH calc AS (
             , COUNT(missType) AS miss
             , spellSchool
         FROM events
-        LEFT JOIN pets
-        ON events.sourceGUID = pets.petGUID
         WHERE
             spellID = :spellID
         AND timestamp >= :startTime
         AND timestamp <= :endTime
-        AND (
-                sourceName = :sourceName
-            OR  ownerName = :sourceName
-        )
+        AND sourceName = :sourceName
         AND targetName = :targetName
         AND eventName LIKE '%MISSED'
         GROUP BY missType
