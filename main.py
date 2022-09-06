@@ -1,6 +1,3 @@
-from json import tool
-from pydoc import getpager
-from socket import create_connection
 import sys, os, re
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView, QDialog
 from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon, QStandardItemModel, QStandardItem
