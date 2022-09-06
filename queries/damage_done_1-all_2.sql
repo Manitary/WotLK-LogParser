@@ -26,7 +26,7 @@ WITH calc AS (
         AND sourceName = :sourceName
         AND (
                 eventName LIKE '%DAMAGE%'
-            OR  missType = 'ABSORBED'
+            OR  missType = 'ABSORB'
         )
         GROUP BY critical
     )

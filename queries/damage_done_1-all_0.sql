@@ -24,7 +24,7 @@ WITH calc AS (
         )
         AND (
                 eventName LIKE '%DAMAGE%'
-            OR  missType = 'ABSORBED'
+            OR  missType = 'ABSORB'
         )
         AND (
                 s.timestamp = :startTime

@@ -33,7 +33,7 @@ WITH calc AS (
             AND targetName = :targetName
             AND (
                     eventName LIKE '%DAMAGE'
-                OR  missType = 'ABSORBED'
+                OR  missType = 'ABSORB'
             )
             GROUP BY sourceGUID
         ) s

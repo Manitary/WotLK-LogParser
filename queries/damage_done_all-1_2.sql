@@ -27,7 +27,7 @@ WITH calc AS (
         AND events.targetName = :targetName
         AND (
                 eventName LIKE '%DAMAGE%'
-            OR  missType = 'ABSORBED'
+            OR  missType = 'ABSORB'
         )
         GROUP BY sp, s.spellID
         ORDER BY dmg + absorbed DESC
