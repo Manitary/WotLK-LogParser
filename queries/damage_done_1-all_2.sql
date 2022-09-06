@@ -17,8 +17,6 @@ WITH calc AS (
             , AVG(amount) AS avgdmg
             , spellSchool AS school
         FROM events
-        LEFT JOIN pets
-        ON events.sourceGUID = pets.petGUID
         WHERE
             spellID = :spellID
         AND timestamp >= :startTime
