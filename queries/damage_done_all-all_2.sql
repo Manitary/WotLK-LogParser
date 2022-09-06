@@ -1,42 +1,42 @@
 WITH calc AS (
     SELECT
-        IIF(crit > 0, 'Crit', 'Hit') AS crit
+        sp AS spellName
         , (dmg + absorbed) * 100.0 / (SUM(dmg) OVER() + SUM(absorbed) OVER()) AS pct
         , dmg + absorbed AS dmg
-        , mindmg
-        , maxdmg
-        , avgdmg
+        , icon
         , school
     FROM (
         SELECT
-            critical AS crit
+            IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , SUM(amount) AS dmg
             , SUM(absorbed) AS absorbed
-            , MIN(amount) AS mindmg
-            , MAX(amount) AS maxdmg
-            , AVG(amount) AS avgdmg
+            , icon
             , spellSchool AS school
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
+        LEFT JOIN spell_db.spell_data s
+        ON events.spellID = s.spellID
         WHERE
-            spellID = :spellID
-        AND timestamp >= :startTime
+            timestamp >= :startTime
         AND timestamp <= :endTime
-        AND sourceName = :sourceName
-        AND targetName = :targetName
+        AND (
+                sourceName = :sourceName
+            OR  ownerName = :sourceName
+        )
         AND eventName LIKE '%DAMAGE%'
-        GROUP BY critical
+        AND spellName IS NOT NULL
+        GROUP BY sp, s.spellID
+        ORDER BY dmg + absorbed DESC
     )
 )
 SELECT
-    crit
+    spellName
     , PRINTF('%.2f%%', pct) AS pct
     , pct / MAX(pct) OVER() AS relpct
     , PRINTF('%,d', dmg) AS dmg
-    , mindmg
-    , maxdmg
-    , avgdmg
+    , icon
     , school
 FROM calc
 ORDER BY relpct DESC
+LIMIT 5

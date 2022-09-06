@@ -77,7 +77,7 @@ WITH calc AS (
             OR  eventName = 'SPELL_CAST_START'
         )
         AND spellName IS NOT NULL
-        GROUP BY sp
+        GROUP BY sp, spellID
     ) c
     ON t.sp = c.sp
 )

@@ -1,3 +1,6 @@
+from json import tool
+from pydoc import getpager
+from socket import create_connection
 import sys, os, re
 from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView, QDialog
 from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon, QStandardItemModel, QStandardItem
@@ -27,41 +30,46 @@ DEBUFFS = "Debuffs"
 METERS = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS, BUFFS, DEBUFFS]
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
 EVERYONE = True
-TOOLTIP = True
 ICON = 'icon'
 SCHOOL = 'school'
-SPEC = 'spec'
+HERO = 'spec'
+SPELL = 'spell'
+TYPE = 'type'
 BAR = 'bar'
 HIDE = 'hide'
+SPELL_INFO = 'spellInfo'
 COLUMNS = {
     DAMAGEDONE: {
         EVERYONE: {
-            TOOLTIP: {BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
-            not TOOLTIP: {BAR: 2, ICON: 5, SPEC: 5, HIDE: 5},
+            -1: {TYPE: HERO, BAR: 2, HERO: 5, HIDE: 5},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
         },
         not EVERYONE: {
-            TOOLTIP: {BAR: 2, SCHOOL: 7, HIDE: 7},
-            not TOOLTIP: {BAR: 2, ICON: 11, SCHOOL: 12, HIDE: 11},
+            -1: {TYPE: SPELL, BAR: 2, ICON: 11, SCHOOL: 12, HIDE: 11},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 7, HIDE: 4},
+            6: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 4, HIDE: 4},
         },
     },
     DAMAGETAKEN: {
         EVERYONE: {
-            TOOLTIP: {},
-            not TOOLTIP: {BAR: 2, ICON: 6, SPEC: 6, HIDE: 6},
+            -1: {BAR: 2, ICON: 6, HERO: 6, HIDE: 6},
+            2: {},
         },
         not EVERYONE: {
-            TOOLTIP: {},
-            not TOOLTIP: {BAR: 2, ICON: 10, SCHOOL: 11, HIDE: 10},
+            -1: {BAR: 2, ICON: 10, SCHOOL: 11, HIDE: 10},
+            2: {},
         },
     },
     HEALING: {
         EVERYONE: {
-            TOOLTIP: {},
-            not TOOLTIP: {BAR: 2, ICON: 7, SPEC: 7, HIDE: 7},
+            -1: {BAR: 2, ICON: 7, HERO: 7, HIDE: 7},
+            2: {},
         },
         not EVERYONE: {
-            TOOLTIP: {},
-            not TOOLTIP: {BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
+            -1: {BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
+            2: {},
         },
     },
 }
@@ -160,7 +168,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(None, "Error", f"<p>The following tables are missing from the database: {tables_not_found}</p>")
                 sys.exit(1)
             self.setUpParse()
-    
+
     def setUpMainWindow(self):
         self.create_pet_editing_window = None
         self.encounter_select = QComboBox()
@@ -189,6 +197,9 @@ class MainWindow(QMainWindow):
         self.spell_select.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
 
         self.meter = ''
+        self.everyone = True
+        self.everyoneTarget = True
+        self.affiliation = 1
 
         self.graph = pg.PlotWidget()
         self.table = tooltipTable()
@@ -220,7 +231,7 @@ class MainWindow(QMainWindow):
         self.main_vbox.addLayout(self.extra_hbox)
         self.main_vbox.addWidget(self.graph)
         self.main_vbox.addWidget(self.table)
-    
+
     def setUpParse(self):
         QSqlQuery(f"ATTACH DATABASE '{SPELL_DATA_PATH}' AS spell_db").exec()
 
@@ -290,30 +301,17 @@ class MainWindow(QMainWindow):
 
     def queryDamageDone(self):
         display_query = QSqlQuery()
-        if self.everyone:
-            if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
-                with open('queries/damage_done_all-all.sql', 'r') as f:
-                    display_query.prepare(f.read())
-            else:
-                with open('queries/damage_done_all-1.sql', 'r') as f:
-                    display_query.prepare(f.read())
-                display_query.bindValue(":targetName", self.target_select.currentText())
-            display_query.bindValue(":affiliation", self.source_affiliation)
-        else:
-            if self.target_select.currentData() == AFFILIATION[1 - self.source_affiliation]:
-                with open('queries/damage_done_1-all.sql', 'r') as f:
-                    display_query.prepare(f.read())
-            else:
-                with open('queries/damage_done_1-1.sql', 'r') as f:
-                    display_query.prepare(f.read())
-                display_query.bindValue(":targetName", self.target_select.currentText())
-            display_query.bindValue(":sourceName", self.source_select.currentText())
+        with open(getPath(self.meter, self.everyone, self.everyoneTarget), 'r') as f:
+            display_query.prepare(f.read())
+        display_query.bindValue(":affiliation", self.source_affiliation)
+        display_query.bindValue(":targetName", self.target_select.currentText())
+        display_query.bindValue(":sourceName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.startTime)
         display_query.bindValue(":endTime", self.endTime)
         display_query.exec()
         self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
         self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
-        for i in range(COLUMNS[self.meter][self.everyone][False][HIDE], self.table.horizontalHeader().count()):
+        for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
             self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -343,7 +341,7 @@ class MainWindow(QMainWindow):
         display_query.exec()
         self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
         self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
-        for i in range(COLUMNS[self.meter][self.everyone][False][HIDE], self.table.horizontalHeader().count()):
+        for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
             self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -373,7 +371,7 @@ class MainWindow(QMainWindow):
         display_query.exec()
         self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
         self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
-        for i in range(COLUMNS[self.meter][self.everyone][False][HIDE], self.table.horizontalHeader().count()):
+        for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
             self.table.hideColumn(i)
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
@@ -568,6 +566,8 @@ class MainWindow(QMainWindow):
         self.endTime = self.encounter_select.currentData()[1]
         self.everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
         self.meter = self.meter_select.currentText()
+        self.everyoneTarget = isTargetEveryone(self.meter, self.source_affiliation, self.target_select.currentData())
+        self.updateTableFilters()
 
     def updateUnitList(self):
         self.source_select.blockSignals(True)
@@ -578,6 +578,7 @@ class MainWindow(QMainWindow):
             self.target_current = self.target_select.currentData()
         self.source_select.clear()
         self.target_select.clear()
+        self.meter = self.meter_select.currentText()
         self.updateTargetAffiliation()
         self.source_select.addItem(f"All {AFFILIATION[self.source_affiliation]}", AFFILIATION[self.source_affiliation])
         self.target_select.addItem(f"All {AFFILIATION[self.target_affiliation]}", AFFILIATION[self.target_affiliation])
@@ -623,7 +624,7 @@ class MainWindow(QMainWindow):
 
     def resetSourceSelection(self):
         self.source_select.setCurrentIndex(0)
-    
+
     def resetTargetSelection(self):
         self.target_select.setCurrentIndex(0)
 
@@ -636,22 +637,20 @@ class MainWindow(QMainWindow):
         self.direction = 1 - self.direction
         self.direction_swap_button.setText(DIRECTION[self.direction])
         self.updateUnitList() #mainquery?
-    
+
     def updateTargetAffiliation(self):
-        meter = self.meter_select.currentText()
-        if meter in (DAMAGEDONE, DAMAGETAKEN, DEBUFFS, DEATHS):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, DEBUFFS, DEATHS):
             self.target_affiliation = 1 - self.source_affiliation
-        elif meter in (HEALING, BUFFS):
+        elif self.meter in (HEALING, BUFFS):
             self.target_affiliation = self.source_affiliation
         else:
             self.target_affiliation = 0
 
     def tableClicked(self, item):
-        meter = self.meter_select.currentText()
-        if meter in (DAMAGEDONE, DAMAGETAKEN, HEALING):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALING):
             if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
                 self.source_select.setCurrentIndex(new_source)
-        elif meter == DEATHS:
+        elif self.meter == DEATHS:
             timestamp = item.siblingAtColumn(5).data()
             unitName = item.siblingAtColumn(1).data()
             if (idx := self.source_select.findText(unitName)) != -1:
@@ -659,7 +658,7 @@ class MainWindow(QMainWindow):
                 self.source_select.setCurrentIndex(idx)
                 self.source_select.blockSignals(False)
                 self.queryDeaths(timestamp, unitName)
-        elif meter in (BUFFS, DEBUFFS):
+        elif self.meter in (BUFFS, DEBUFFS):
             name = item.siblingAtColumn(0).data()
             everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
             if self.direction:
@@ -706,16 +705,15 @@ class MainWindow(QMainWindow):
         self.direction_swap_button.show()
         self.spell_clear_button.show()
         self.spell_select.show()
-        meter = self.meter_select.currentText()
-        if meter in (BUFFS, DEBUFFS):
+        if self.meter in (BUFFS, DEBUFFS):
             everyone = self.source_select.currentData() == AFFILIATION[self.source_affiliation]
             startTime = self.encounter_select.currentData()[0]
             endTime = self.encounter_select.currentData()[1]
-            auraType = 'BUFF' if meter == BUFFS else 'DEBUFF'
+            auraType = 'BUFF' if self.meter == BUFFS else 'DEBUFF'
             direction = APPLIED if self.direction else GAINED
             q = QSqlQuery()
             if everyone:
-                if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]:
+                if self.target_select.currentData() == AFFILIATION[self.source_affiliation if self.meter == BUFFS else 1 - self.source_affiliation]:
                     with open(f"queries/buffs_{direction}_all-all.sql", 'r') as f:
                         q.prepare(f.read())
                 else:
@@ -724,7 +722,7 @@ class MainWindow(QMainWindow):
                     q.bindValue(':sourceGUID', self.target_select.currentData()[1])
                 q.bindValue(":affiliation", self.source_affiliation)
             else:
-                if self.target_select.currentData() == AFFILIATION[self.source_affiliation if meter == BUFFS else 1 - self.source_affiliation]: 
+                if self.target_select.currentData() == AFFILIATION[self.source_affiliation if self.meter == BUFFS else 1 - self.source_affiliation]: 
                     with open(f"queries/buffs_{direction}_1-all.sql", 'r') as f:
                         q.prepare(f.read())
                 else:
@@ -769,35 +767,40 @@ class MainWindow(QMainWindow):
     def resetSpellSelection(self):
         self.spell_select.setCurrentIndex(0)
 
+    def updateTableFilters(self):
+        self.table.updateFilters()
+
 class meterSqlTableModel(QSqlTableModel):
-    def __init__(self, query = QSqlQuery(), meter = DAMAGEDONE, everyone = True, isTooltip = False, *args, **kwargs):
+    def __init__(self, query = QSqlQuery(), meter = DAMAGEDONE, everyone = True, tooltipColumn = -1, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.meter = meter
         self.everyone = everyone
-        self.path = PATH_HERO if everyone and not isTooltip else PATH_SPELL
+        self.tooltipColumn = tooltipColumn
         self.setQuery(query)
-        self.isTooltip = isTooltip
 
     def data(self, index, role):
         if index.column() == 0:
             if role == Qt.ItemDataRole.DecorationRole:
                 try:
-                    icon = index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.isTooltip][ICON]).data()
-                    if icon:
-                        return QPixmap(self.path(icon)).scaledToHeight(25)
-                    elif QSqlTableModel.data(self, index, Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
-                        return QPixmap(self.path('inv_axe_01')).scaledToHeight(25)
+                    if COLUMNS[self.meter][self.everyone][self.tooltipColumn][TYPE] == HERO:
+                        if (icon := index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.tooltipColumn][HERO]).data()):
+                            return QPixmap(PATH_HERO(icon)).scaledToHeight(25)
+                    elif COLUMNS[self.meter][self.everyone][self.tooltipColumn][TYPE] == SPELL:
+                        if (icon := index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.tooltipColumn][ICON]).data()):
+                            return QPixmap(PATH_SPELL(icon)).scaledToHeight(25)
+                        elif QSqlTableModel.data(self, index, Qt.ItemDataRole.DisplayRole).endswith('MeleeSwing'):
+                            return QPixmap(PATH_SPELL('inv_axe_01')).scaledToHeight(25)
                 except:
                     pass
             elif role == Qt.ItemDataRole.ForegroundRole and self.meter != DEATHS:
-                if self.everyone and not self.isTooltip:
+                if COLUMNS[self.meter][self.everyone][self.tooltipColumn][TYPE] == HERO:
                     try:
-                        return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.isTooltip][SPEC]).data()[:-2]])
+                        return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.tooltipColumn][HERO]).data()[:-2]][0])
                     except:
                         pass
-                else:
+                elif COLUMNS[self.meter][self.everyone][self.tooltipColumn][TYPE] == SPELL:
                     try:
-                        return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.isTooltip][SCHOOL]).data()))[-1])
+                        return QBrush(class_recognition.getSchoolColours(int(index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.tooltipColumn][SCHOOL]).data()))[-1])
                     except:
                         pass
         elif index.column() == 1 and role == Qt.ItemDataRole.TextAlignmentRole:
@@ -879,19 +882,22 @@ class deathRecapSqlTableModel(QSqlTableModel):
         return QSqlTableModel.data(self, index, role)
 
 class meterDelegate(QAbstractItemDelegate):
-    def __init__(self, meter = DAMAGEDONE, everyone = True, isTooltip = False):
+    def __init__(self, meter = DAMAGEDONE, everyone = True, tooltipColumn = -1):
         super().__init__()
         self.meter = meter
         self.everyone = everyone
-        self.isTooltip = isTooltip
+        self.tooltipColumn = tooltipColumn
     
     def paint(self, painter, option, index):
         try:
             scale = float(index.data(Qt.ItemDataRole.DisplayRole))
-            try:
-                colour = class_recognition.CLASS_COLOUR[index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.isTooltip][SPEC]).data()[:-2]]
-            except:
-                colour = Qt.GlobalColor.gray
+            if COLUMNS[self.meter][self.everyone][self.tooltipColumn][TYPE] == HERO:
+                try:
+                    colour = class_recognition.CLASS_COLOUR[index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.tooltipColumn][HERO]).data()[:-2]]
+                except:
+                    colour = [Qt.GlobalColor.gray]
+            elif COLUMNS[self.meter][self.everyone][self.tooltipColumn][TYPE] in (SPELL, SPELL_INFO):
+                colour = class_recognition.getSchoolColours(int(index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.tooltipColumn][SCHOOL]).data()))
             x = option.rect.topLeft().x()
             y = option.rect.topLeft().y()
             w = option.rect.topRight().x() - x
@@ -901,22 +907,14 @@ class meterDelegate(QAbstractItemDelegate):
             x = x + BAR_OFFSET_X
             y = y + BAR_OFFSET_Y
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.setBrush(QBrush(colour))
-            try:
-                if self.everyone and not self.isTooltip:
-                    painter.drawRect(QRectF(x, y, w, h))
-                else:
-                    colours = class_recognition.getSchoolColours(int(index.siblingAtColumn(COLUMNS[self.meter][self.everyone][self.isTooltip][SCHOOL]).data()))
-                    if len(colours) > 1:
-                        gradient = QLinearGradient(x, y, x+w, y+h)
-                        gradient.setColorAt(0.0, colours[1])
-                        gradient.setColorAt(1.0, colours[0])
-                        painter.fillRect(QRectF(x, y, w, h), gradient)
-                    else:
-                        painter.setBrush(QBrush(colours[0]))
-                        painter.drawRect(QRectF(x, y, w, h))
-            except:
+            if len(colour) == 1:
+                painter.setBrush(QBrush(colour[0]))
                 painter.drawRect(QRectF(x, y, w, h))
+            else:
+                gradient = QLinearGradient(x, y, x + w, y + h)
+                gradient.setColorAt(0.0, colour[-1])
+                gradient.setColorAt(1.0, colour[0])
+                painter.fillRect(QRectF(x, y, w, h), gradient)
         except:
             pass
 
@@ -991,73 +989,67 @@ class tooltipTable(QTableView):
         self.tooltip_table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.container_layout.addWidget(self.tooltip_table)
         self.container.setLayout(self.container_layout)
-        self.current_index = None
+        self.current_cell = None
         self.tooltip.installEventFilter(self)
+
+    def updateFilters(self):
+        self.meter = self.parent().parent().meter
+        self.everyone = self.parent().parent().everyone
+        self.target = self.parent().parent().target_select.currentData()
+        self.source_affiliation = self.parent().parent().source_affiliation
+        self.everyoneTarget = isTargetEveryone(self.meter, self.source_affiliation, self.target)
+        self.startTime = self.parent().parent().startTime
+        self.endTime = self.parent().parent().endTime
 
     def eventFilter(self, object, event):
         if self.viewport().isVisible():
             if event.type() == QEvent.Type.MouseMove:
                 coords = event.pos()
                 index = self.indexAt(coords)
-                if index != self.current_index:
-                    self.current_index = index
-                    if index.column() == 2:
-                        self.hideTooltip()
-                        self.createTooltip(index)
                 if index.isValid():
-                    self.showTooltip(index, coords)
-                else:
-                    self.hideTooltip()
+                    path = getPath(self.meter, self.everyone, self.everyoneTarget, index.column())
+                    cell = (index.row(), index.column())
+                    if cell != self.current_cell:
+                        self.current_cell = cell
+                        self.hideTooltip()
+                        if os.path.exists(path):
+                            self.createTooltip(index, self.meter, self.everyone, self.target, self.source_affiliation, path)
+                    if os.path.exists(path):
+                        self.showTooltip(index, coords)
+                    else:
+                        self.hideTooltip()
             elif event.type() == QEvent.Type.Leave:
                 self.hideTooltip()
+                self.current_cell = None
         return super().eventFilter(object, event)
 
-    def createTooltip(self, index = None):
-        meter = self.parent().parent().meter
-        everyone = self.parent().parent().everyone
-        startTime = self.parent().parent().startTime
-        endTime = self.parent().parent().endTime
-        source_affiliation = self.parent().parent().source_affiliation
-        target = self.parent().parent().target_select.currentData()
+    def createTooltip(self, index = None, meter = DAMAGEDONE, everyone = True, target = None, source_affiliation = 1, path = ''):
         try:
             targetName = target[0]
         except:
             pass
         if meter in (DAMAGEDONE):
             display_query = QSqlQuery()
-            if everyone:
-                if target == AFFILIATION[1 - source_affiliation]:
-                    with open('queries/damage_done_all-all_tooltip.sql', 'r') as f:
-                        display_query.prepare(f.read())
-                else:
-                    with open('queries/damage_done_all-1_tooltip.sql', 'r') as f:
-                        display_query.prepare(f.read())
-                    display_query.bindValue(':targetName', targetName)
-                display_query.bindValue(':sourceName', index.siblingAtColumn(0).data())
-            else:
-                if target == AFFILIATION[1 - source_affiliation]:
-                    with open('queries/damage_done_1-all_tooltip.sql', 'r') as f:
-                        display_query.prepare(f.read())
-                else:
-                    with open('queries/damage_done_1-1_tooltip.sql', 'r') as f:
-                        display_query.prepare(f.read())
-                    display_query.bindValue(':targetName', targetName)
+            if os.path.exists(path):
+                with open(path, 'r') as f:
+                    display_query.prepare(f.read())
+                display_query.bindValue(':targetName', targetName)
+                display_query.bindValue(':sourceName', index.siblingAtColumn(6 if everyone else 14).data())
                 display_query.bindValue(':spellID', int(index.siblingAtColumn(13).data() or '0'))
-                display_query.bindValue(':sourceName', index.siblingAtColumn(14).data())
-            display_query.bindValue(':startTime', startTime)
-            display_query.bindValue(':endTime', endTime)
+                display_query.bindValue(':startTime', self.startTime)
+                display_query.bindValue(':endTime', self.endTime)
 
-            display_query.exec()
-            self.tooltip_table.setItemDelegateForColumn(2, meterDelegate(meter, everyone, True))
-            self.tooltip_table.setModel(meterSqlTableModel(display_query, meter, everyone, True))
-            self.tooltip_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-            self.tooltip_table.setColumnWidth(2, 200)
-            for i in range(4, self.tooltip_table.horizontalHeader().count()):
-                self.tooltip_table.hideColumn(i)
-            self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
+                print(display_query.exec())
+                self.tooltip_table.setItemDelegateForColumn(COLUMNS[meter][everyone][index.column()][BAR], meterDelegate(meter, everyone, index.column()))
+                self.tooltip_table.setModel(meterSqlTableModel(display_query, meter, everyone, index.column()))
+                self.tooltip_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
+                self.tooltip_table.setColumnWidth(2, 200)
+                for i in range(4, self.tooltip_table.horizontalHeader().count()):
+                    self.tooltip_table.hideColumn(i)
+                self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
 
     def showTooltip(self, index, coords):
-        if index.column() == 2 and self.parent().parent().meter in (DAMAGEDONE):
+        if self.meter in (DAMAGEDONE):
             self.tooltip.move(self.viewport().mapToGlobal(coords + QPoint(10, 20)))
             self.tooltip.show()
         else:
@@ -1065,6 +1057,15 @@ class tooltipTable(QTableView):
 
     def hideTooltip(self):
         self.tooltip.hide()
+
+def isTargetEveryone(meter, sourceAffiliation, target):
+    if meter in (DAMAGEDONE, DAMAGETAKEN, DEBUFFS):
+        return target == AFFILIATION[1 - sourceAffiliation]
+    else:
+        return target == AFFILIATION[sourceAffiliation]
+
+def getPath(meter, everyone, everyoneTarget, column = None):
+    return f"queries/{meter.replace(' ', '_').lower()}_{'all' if everyone else 1}-{'all' if everyoneTarget else 1}{'_' + str(column) if column != None else ''}.sql"
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

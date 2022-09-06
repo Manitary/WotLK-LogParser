@@ -51,6 +51,7 @@ SELECT
     , PRINTF('%,d', dmg) AS dmg
     , PRINTF('%,d', dps) AS dps
     , spec
+    , name AS cleanname
 FROM calc
 UNION ALL
 SELECT
@@ -60,5 +61,6 @@ SELECT
     , PRINTF('%,d', SUM(dmg)) AS dmg
     , PRINTF('%,d', SUM(dps)) AS dps
     , NULL AS spec
+    , NULL AS cleanname
 FROM calc
 ORDER BY relpct DESC
