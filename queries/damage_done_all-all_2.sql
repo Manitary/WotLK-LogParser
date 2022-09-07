@@ -29,7 +29,6 @@ WITH calc AS (
             OR  missType = 'ABSORB'
         )
         GROUP BY sp, s.spellID
-        ORDER BY dmg + absorbed DESC
     )
 )
 SELECT
