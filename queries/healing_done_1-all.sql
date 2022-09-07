@@ -12,6 +12,10 @@ WITH calc AS (
         , CASE WHEN crit > 0 THEN PRINTF('%,d (%2.2f%%)', crit, crit * 100.0 / hit) ELSE '-' END AS crit
         , icon
         , school
+        , spellID
+        , sourceName
+        , ownerName
+        , eventName
     FROM (
         SELECT
             IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (HoT)', '') AS sp
@@ -21,7 +25,10 @@ WITH calc AS (
             , SUM(overhealing) AS overheal
             , SUM(critical) AS crit
             , icon
-            , MAX(spellSchool) AS school
+            , spellSchool AS school
+            , sourceName
+            , ownerName
+            , eventName
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
@@ -72,5 +79,9 @@ SELECT
     , crit
     , icon
     , school
+    , spellID
+    , sourceName
+    , ownerName
+    , eventName
 FROM calc
 ORDER BY relpct DESC

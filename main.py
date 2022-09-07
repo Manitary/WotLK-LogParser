@@ -73,6 +73,8 @@ COLUMNS = {
         },
         not EVERYONE: {
             -1: {TYPE: SPELL, BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 11, HIDE: 11},
         },
     },
 }
@@ -1010,7 +1012,10 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':ownerName', index.siblingAtColumn(14).data())
             elif meter == HEALINGDONE:
                 display_query.bindValue(':targetName', targetName)
-                display_query.bindValue(':sourceName', index.siblingAtColumn(8 if everyone else 0).data())
+                display_query.bindValue(':sourceName', index.siblingAtColumn(8 if everyone else 11).data())
+                display_query.bindValue(':spellID', int(index.siblingAtColumn(10).data() or '0'))
+                display_query.bindValue(':eventName', index.siblingAtColumn(13).data())
+                display_query.bindValue(':ownerName', index.siblingAtColumn(12).data())
             display_query.bindValue(':startTime', self.startTime)
             display_query.bindValue(':endTime', self.endTime)
             print(display_query.exec())
