@@ -4,32 +4,42 @@ A personal mini-project to create a program to parse and view combat logs of Wor
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
-## 0.5.5
+## 0.6
 New:
-* Add spec icon to the unit selection menu
-* The death log now filter deaths based on the selected unit. Visualising the death recap still requires interaction with the displayed table
+* Added tooltip tables on relevant columns of various meters (Damage Done/Taken, Healing Done)
+* Added a toggle to swap between gained and applied (de)buffs
+* Added the option to filter a single buff
+* Interacting with the buff table should now filter results properly
 
 Bugfix:
-* Opening more than one parse in the same session does not longer result in unwanted behaviour of the application
-* The currently selected unit no longer resets when selecting a different meter or encounter (provided it is still a suitable unit)
-* The currently select unit now resets when opening another parse, even in the case of a valid unit
+* Fixed an issue with simultaneous death events that resulted in missing entries
+* Fixed an issue with sorting simultaneous events in death logs
+* Crit % is now displayed in damage breakdown tables
+* Damage Done calculations now take fully absorbed hits into account
+* Fully blocked or resisted hits are now parsed correctly
+* Table columns should now automatically resize in the intended way
+* Changed damage taken calculations: the total amount only includes effective and absorbed damage, as blocked and resisted damage need not to be healed or shielded from
+* Fixed various other calculations in the breakdown tables
+* Units with the same name should now be merged in both damage and healing global meters
+* Fixed some issues with displaying the colour of multi-school spells, or of aggregated spells with the same name but different school (e.g. some creatures deal non-physical damage with their auto-attacks)
+* Fixed an issue that caused manual pet pairing not to work
 
 ----
 
 ## Known issues:
 
 * Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
-* Parsing is very slow (1M entries take 30+ minutes)
 * Aura tracking may be inaccurate, possibly due to bugs, but mostly due to how poor the Combat Log is in this regard.
+* Aura tracking may result in unwanted additional results for certain permanent auras (e.g. stance changes for DK, various permanent auras on pets)
 * Encounter parsing has some issues, like identifying wipe or kill on multi-target fights (e.g. The Four Horsemen)
+* Parsing is very slow (1M entries take 30+ minutes)
 
 ----
 
 ## Upcoming features (hopefully)
 
+* Add a undo-redo function to quickly move through recently applied filters
 * Add pet <-> owner pairing of creatures summoned by Snake Trap 
-* Improve auras analysis (e.g. uptime)
-* Improve encounter parsing
 * Add absorb log
 * Add a graph for the currently selected meter
 * Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
@@ -42,31 +52,27 @@ Bugfix:
 
 Unit selection menu
 
-![Unit selection menu](https://i.imgur.com/81S4x5B.png)
+![Unit selection menu](https://i.imgur.com/WR6Wr6Z.png)
 
-Damage meter
+Damage breakdown, with tooltip example
 
-![Damage meter](https://i.imgur.com/la1Hike.png)
+![Damage breakdown](https://i.imgur.com/uSTir2f.png)
 
-Damage breakdown
+Damage Taken meter (includes a non-assigned pet)
 
-![Damage breakdown](https://i.imgur.com/47KA9Qn.png)
+![Damage Taken meter](https://i.imgur.com/ZTsnnZc.png)
 
-Damage Taken meter
+Damage Taken breakdown, with tooltip example
 
-![Damage Taken meter](https://i.imgur.com/Y0GRlb2.png)
+![Damage Taken breakdown](https://i.imgur.com/u3vqOu5.png)
 
-Damage Taken breakdown
+Healing Meter (does not include absorbs)
 
-![Damage Taken breakdown](https://i.imgur.com/g0Rcgt2.png)
+![Healing Meter](https://i.imgur.com/VbmHalh.png)
 
-Healing Meter
+Healing breakdown, with tooltip example
 
-![Healing Meter](https://i.imgur.com/6Fhmk7x.png)
-
-Healing breakdown
-
-![Healing breakdown](https://i.imgur.com/J8lZm61.png)
+![Healing breakdown](https://i.imgur.com/f7LeTlE.png)
 
 Death log
 
@@ -94,6 +100,16 @@ Manual pet assignment
 
 ### 0.5.4
 New:
+* Add spec icon to the unit selection menu
+* The death log now filter deaths based on the selected unit. Visualising the death recap still requires interaction with the displayed table
+
+Bugfix:
+* Opening more than one parse in the same session does not longer result in unwanted behaviour of the application
+* The currently selected unit no longer resets when selecting a different meter or encounter (provided it is still a valid unit)
+* The currently select unit now resets when opening another parse, even in the case of a valid unit
+
+### 0.5.3
+New:
 * Display a bar visualisation of damage and healing meters
 * Improve graphics across all meters and death log
 
@@ -101,13 +117,13 @@ Bugfix:
 * The death log now behaves properly when multiple events are registered with the same timestamp
 * Unassigned pets are now displayed appropriately in global damage and healing meters
 
-### 0.5.3
+### 0.5.2
 New:
 * Added spec tracking, for each encounter
 * Added spec/spell icon on meters/breakdown
 * Improved visual display of meters/breakdown
 
-### 0.5.2
+### 0.5.1
 New:
 * Added buff uptime tracking, and a simple uptime graph. Has some limitations mostly due to how the Combat Log works.
 
@@ -118,16 +134,16 @@ Tweaks:
 Bugfix:
 * Fixed an issue with encounter parsing.
 
-### 0.5.1
+### 0.5
 New:
 * Added the possibility to manually (re)assign pets to an owner. Useful for named pets (Warlock, Hunter, Unholy DK) or for single-class temporary pets (e.g. Treants with a single Balance Druid among friendly units).
 
-### 0.4.1
+### 0.4
 New:
 * Added automatic coupling of pet <-> pet owner during parsing. It will not always work, for example with permanent pets that never interact with their owner (through buffs/heals) or with temporary pets for which the summon event is not registered in the combat log for any reason.
 * Pets are now merged with their owner in the meter, both damage and healing. Pets with an unknown owner will still be displayed separately.
 
-### 0.3.1
+### 0.3
 New:
 * Added Deaths log, including death breakdown up until 5 seconds before the killing blow.
 Known bug:
@@ -135,7 +151,7 @@ Known bug:
 Bugfix:
 * Fixed timestamp parsing.
 
-### 0.2.1
+### 0.2
 New:
 * Added healing meter. Absorbs are not included until auras are implemented (WotLK does not have proper absorb tracking, only amount of spell/swing damage absorbed with no additional info).
 Bugfix:
@@ -163,7 +179,7 @@ New:
 * Changing encounter updates the source to characters that participated in the fight (instead of grabbing a list from the whole log).
 * Changing encounter will keep the current player selected, even if they did not participate, to prevent having to re-select them.
 
-### 0.1.0
+### 0.1
 
 Functionalities:
 * Parse a WoWCombatLog.txt file into a usable database for quick data retrieval. This includes computing supplementary information, like identifying player- and server-controlled entities, establishing start/end time of boss encounters (in WotLK there is no event API for it), etc.
