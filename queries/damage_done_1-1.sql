@@ -23,9 +23,10 @@ WITH calc AS (
         , school
         , spellID
         , sourceName
+        , ownerName
     FROM (
         SELECT
-            IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
+            IIF(ownerName IS NULL, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , s.spellID AS spellID
             , SUM(amount) AS dmg
             , COUNT(amount) AS hit
@@ -37,6 +38,7 @@ WITH calc AS (
             , icon
             , MAX(school) AS school
             , sourceName
+            , ownerName
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
@@ -54,12 +56,11 @@ WITH calc AS (
                 eventName LIKE '%DAMAGE%'
             OR  eventName LIKE '%MISSED'
         )
-        AND spellName IS NOT NULL
         GROUP BY sp, s.spellID
     ) t
     LEFT JOIN (
         SELECT
-            IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
+            IIF(ownerName IS NULL, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , COUNT(eventName) AS casts
         FROM events
         LEFT JOIN pets
@@ -75,7 +76,6 @@ WITH calc AS (
                 eventName = 'SPELL_CAST_SUCCESS'
             OR  eventName = 'SPELL_CAST_START'
         )
-        AND spellName IS NOT NULL
         GROUP BY sp, spellID
     ) c
     ON t.sp = c.sp
@@ -96,5 +96,6 @@ SELECT
     , school
     , spellID
     , sourceName
+    , ownerName
 FROM calc
 ORDER BY relpct DESC

@@ -23,6 +23,7 @@ WITH calc AS (
         , school
         , spellID
         , sourceName
+        , ownerName
     FROM (
         SELECT
             IIF(sourceName = :sourceName, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
@@ -37,6 +38,7 @@ WITH calc AS (
             , icon
             , spellSchool AS school
             , sourceName
+            , ownerName
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
@@ -95,5 +97,6 @@ SELECT
     , school
     , spellID
     , sourceName
+    , ownerName
 FROM calc
 ORDER BY relpct DESC

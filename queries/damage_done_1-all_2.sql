@@ -17,11 +17,19 @@ WITH calc AS (
             , AVG(amount) AS avgdmg
             , spellSchool AS school
         FROM events
+        LEFT JOIN pets
+        ON events.sourceGUID = pets.petGUID
+        LEFT JOIN actors
+        ON events.sourceGUID = actors.unitGUID
         WHERE
             spellID = :spellID
         AND timestamp >= :startTime
         AND timestamp <= :endTime
         AND sourceName = :sourceName
+        AND (
+                isPet IS NULL
+            OR  ownerName = :ownerName
+        )
         AND (
                 eventName LIKE '%DAMAGE%'
             OR  missType = 'ABSORB'
