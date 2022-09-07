@@ -1005,6 +1005,7 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':sourceName', index.siblingAtColumn(6 if everyone else 14).data())
                 display_query.bindValue(':spellID', int(index.siblingAtColumn(13).data() or '0'))
                 display_query.bindValue(':ownerName', index.siblingAtColumn(15).data())
+                display_query.bindValue(':periodic', index.siblingAtColumn(16).data())
             elif meter == DAMAGETAKEN:
                 display_query.bindValue(':targetName', index.siblingAtColumn(7 if everyone else 12).data())
                 display_query.bindValue(':sourceName', targetName if everyoneTarget or everyone else index.siblingAtColumn(13).data())

@@ -24,6 +24,7 @@ WITH calc AS (
         , spellID
         , sourceName
         , ownerName
+        , periodic
     FROM (
         SELECT
             IIF(ownerName IS NULL, '', '(' || sourceName || ') ') || spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
@@ -39,6 +40,7 @@ WITH calc AS (
             , MAX(school) AS school
             , sourceName
             , ownerName
+            , IIF(eventName LIKE 'SPELL_PERIODIC%', 1, 0) AS periodic
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
@@ -97,5 +99,6 @@ SELECT
     , spellID
     , sourceName
     , ownerName
+    , periodic
 FROM calc
 ORDER BY relpct DESC

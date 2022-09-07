@@ -31,6 +31,7 @@ WITH calc AS (
                 eventName LIKE '%DAMAGE%'
             OR  missType = 'ABSORB'
         )
+        AND (eventName LIKE '%PERIODIC%') = :periodic
     )
     GROUP BY crit
 )
