@@ -6,39 +6,46 @@ WITH calc AS (
         , total / (JULIANDAY(:endTime) - JULIANDAY(:startTime)) / 86400 AS dtps
         , mitigated
         , spec
+        , COUNT(name) AS num
     FROM (
         SELECT
             name
-            , effective + mitigated AS total
+            , effective + absorbed AS total
             , effective
             , mitigated
             , guid
         FROM (
             SELECT
-                events.targetName AS name
-                , SUM(events.amount) AS effective
-                , SUM(events.blocked) + SUM(events.absorbed) + SUM(events.resisted) AS mitigated
-                , events.targetGUID AS guid
+                targetName AS name
+                , SUM(amount) AS effective
+                , SUM(absorbed) AS absorbed
+                , SUM(blocked) + SUM(events.resisted) AS mitigated
+                , targetGUID AS guid
             FROM events
             JOIN actors
             ON events.targetGUID = actors.unitGUID
+            LEFT JOIN pets
+            ON events.sourceGUID = pets.petGUID
             WHERE
-                events.timestamp >= :startTime
-            AND events.timestamp <= :endTime
+                timestamp >= :startTime
+            AND timestamp <= :endTime
             AND (
-                    actors.isPlayer = :affiliation
-                OR  actors.isPet = :affiliation
+                    isPlayer = :affiliation
+                OR  isPet = :affiliation
                 OR (
                         :affiliation = 0
-                    AND actors.isNPC = 1
+                    AND isNPC = 1
                 )
             )
-            AND sourceName = :sourceName
             AND (
-                    events.eventName LIKE '%DAMAGE'
-                OR  events.eventName LIKE '%MISSED'
+                    sourceName = :sourceName
+                OR  ownerName = :sourceName
             )
-            GROUP BY events.targetGUID
+            AND (
+                    eventName LIKE '%DAMAGE'
+                OR  eventName LIKE '%MISSED'
+            )
+            GROUP BY targetGUID
         )
     ) m
     LEFT JOIN specs
@@ -49,16 +56,17 @@ WITH calc AS (
             specs.timestamp = :startTime
         OR  specs.timestamp IS NULL
     )
-    GROUP BY guid
+    GROUP BY name
 )
 SELECT
-    name
+    name || IIF(num > 1, ' (' || num || ')', '') AS name
     , PRINTF('%.2f%%', totalpct) AS pct
     , totalpct / MAX(totalpct) OVER() AS relpct
     , PRINTF('%,d', total) AS total
     , PRINTF('%,d', dtps) AS dtps
     , PRINTF('%,d (%.2f%%)', mitigated, mitigated * 100.0 / total) AS mitigated
     , spec
+    , name AS cleanname
 FROM calc
 UNION ALL
 SELECT
@@ -69,5 +77,6 @@ SELECT
     , PRINTF('%,d', SUM(dtps)) AS dtps
     , PRINTF('%,d (%.2f%%)', SUM(mitigated), SUM(mitigated) * 100.0 / SUM(total)) AS mitigated
     , NULL AS spec
+    , NULL AS cleanname
 FROM calc
 ORDER BY relpct DESC

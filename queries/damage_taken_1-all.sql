@@ -1,19 +1,20 @@
 WITH calc AS (
     SELECT
-        spellName
-        , (dmg + absorbed + blocked + resisted) * 100.0 / (SUM(dmg) OVER() + SUM(absorbed) OVER() + SUM(blocked) OVER() + SUM(resisted) OVER()) AS pct
-        , dmg + absorbed + blocked + resisted AS dmg
+        sp AS spellName
+        , (dmg + absorbed) * 100.0 / (SUM(dmg) OVER() + SUM(absorbed) OVER()) AS pct
+        , dmg + absorbed AS dmg
         , hit
         , miss
         , absorbed
         , blocked
         , resisted
-        , crit
         , icon
         , school
+        , spellID
+        , targetName
     FROM (
         SELECT
-            spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS spellName
+            spellName || IIF(eventName LIKE 'SPELL_PERIODIC%', ' (DoT)', '') AS sp
             , s.spellID AS spellID
             , SUM(amount) AS dmg
             , COUNT(amount) AS hit
@@ -21,9 +22,10 @@ WITH calc AS (
             , SUM(absorbed) AS absorbed
             , SUM(resisted) AS resisted
             , SUM(blocked) AS blocked
-            , SUM(critical) AS crit
             , icon
-            , MAX(school) AS school
+            , MAX(school & 1) + MAX(school & 2) + MAX(school & 4) + MAX(school & 8) + MAX(school & 16) + MAX(school & 32) + MAX(school & 64) AS school
+            , s.spellID
+            , targetName
         FROM events
         LEFT JOIN spell_db.spell_data s
         ON events.spellID = s.spellID
@@ -35,10 +37,8 @@ WITH calc AS (
             (
                 eventName LIKE '%DAMAGE%'
             OR  eventName LIKE '%MISSED'
-            )
-        AND spellName IS NOT NULL
-        GROUP BY
-            s.spellID
+        )
+        GROUP BY sp, s.spellID
     )
 )
 SELECT
@@ -49,10 +49,11 @@ SELECT
     , hit
     , PRINTF('%,d (%.2f%%)', miss, miss * 100.0 / (hit + miss)) AS miss
     , PRINTF('%,d (%.2f%%)', absorbed, absorbed * 100.0 / dmg) AS absorbed
-    , PRINTF('%,d (%.2f%%)', blocked, blocked * 100.0 / dmg) AS blocked
-    , PRINTF('%,d (%.2f%%)', resisted, resisted * 100.0 / dmg) AS resisted
-    , crit
+    , PRINTF('%,d (%.2f%%)', blocked, blocked * 100.0 / (dmg + blocked)) AS blocked
+    , PRINTF('%,d (%.2f%%)', resisted, resisted * 100.0 / (dmg + blocked + resisted)) AS resisted
     , icon
     , school
+    , spellID
+    , targetName
 FROM calc
 ORDER BY relpct DESC
