@@ -906,7 +906,7 @@ class auraDelegate(QAbstractItemDelegate):
                 painter.setBrush(QBrush(Qt.GlobalColor.gray))
         else:
             try:
-                painter.setBrush(QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(7).data()[:-2]]))
+                painter.setBrush(QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(7).data()[:-2]][0]))
             except:
                 painter.setBrush(QBrush(Qt.GlobalColor.gray))
         for i in intervals:
@@ -934,7 +934,7 @@ class auraSqlTableModel(QSqlTableModel):
                         pass
                 else:
                     try:
-                        return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(7).data()[:-2]])
+                        return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(7).data()[:-2]][0])
                     except:
                         pass
         elif index.column() == 1 and role == Qt.ItemDataRole.TextAlignmentRole:
