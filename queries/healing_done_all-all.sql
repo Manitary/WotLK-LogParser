@@ -58,6 +58,7 @@ SELECT
     , PRINTF('%,d (%2.2f%%)', overheal, overhealpct) AS overheal
     , PRINTF('%,d', hps) AS hps
     , spec
+    , name AS cleanname
 FROM calc
 UNION ALL
 SELECT
@@ -69,5 +70,6 @@ SELECT
     , PRINTF('%,d (%2.2f%%)', SUM(overheal), SUM(overheal) * 100.0 / (SUM(heal) + SUM(overheal))) AS overheal
     , PRINTF('%,d', SUM(hps)) AS hps
     , NULL AS spec
+    , NULL AS cleanname
 FROM calc
 ORDER BY relpct DESC

@@ -20,11 +20,12 @@ APPLIED = "given"
 DIRECTION = [GAINED, APPLIED]
 DAMAGEDONE = "Damage Done"
 DAMAGETAKEN = "Damage Taken"
-HEALING = "Healing"
+HEALINGDONE = "Healing Done"
+HEALINGTAKEN = "Healing Received"
 DEATHS = "Deaths"
 BUFFS = "Buffs"
 DEBUFFS = "Debuffs"
-METERS = [DAMAGEDONE, DAMAGETAKEN, HEALING, DEATHS, BUFFS, DEBUFFS]
+METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN, DEATHS, BUFFS, DEBUFFS]
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
 EVERYONE = True
 ICON = 'icon'
@@ -64,14 +65,14 @@ COLUMNS = {
             5: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 4, HIDE: 4},
         },
     },
-    HEALING: {
+    HEALINGDONE: {
         EVERYONE: {
-            -1: {BAR: 2, ICON: 7, HERO: 7, HIDE: 7},
-            2: {},
+            -1: {TYPE: HERO, BAR: 2, HERO: 7, HIDE: 7},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
         },
         not EVERYONE: {
-            -1: {BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
-            2: {},
+            -1: {TYPE: SPELL, BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
         },
     },
 }
@@ -279,11 +280,9 @@ class MainWindow(QMainWindow):
         self.spell_select.hide()
         self.graph.hide()
         self.table.setModel(self.model)
-        if self.meter == DAMAGEDONE:
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN):
             self.queryDamage()
-        elif self.meter == DAMAGETAKEN:
-            self.queryDamage()
-        elif self.meter == HEALING:
+        elif self.meter in (HEALINGDONE, HEALINGTAKEN):
             self.queryHealing()
         elif self.meter == DEATHS:
             self.queryDeaths()
@@ -323,60 +322,13 @@ class MainWindow(QMainWindow):
         self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
         self.table.horizontalHeader().setSectionResizeMode(COLUMNS[self.meter][self.everyone][-1][BAR], QHeaderView.ResizeMode.Stretch)
 
-    def queryDamageDone(self):
-        display_query = QSqlQuery()
-        with open(getPath(self.meter, self.everyone, self.everyoneTarget), 'r') as f:
-            display_query.prepare(f.read())
-        display_query.bindValue(":affiliation", self.source_affiliation)
-        display_query.bindValue(":sourceName", self.source_select.currentText())
-        display_query.bindValue(":targetName", self.target_select.currentText())
-        display_query.bindValue(":startTime", self.startTime)
-        display_query.bindValue(":endTime", self.endTime)
-        display_query.exec()
-        self.table.setItemDelegateForColumn(COLUMNS[self.meter][self.everyone][-1][BAR], DELEGATES[self.meter][self.everyone])
-        self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
-        for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
-            self.table.hideColumn(i)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(COLUMNS[self.meter][self.everyone][-1][BAR], QHeaderView.ResizeMode.Stretch)
-
-    def queryDamageTaken(self):
-        display_query = QSqlQuery()
-        with open(getPath(self.meter, self.everyone, self.everyoneTarget), 'r') as f:
-            display_query.prepare(f.read())
-        display_query.bindValue(":affiliation", self.source_affiliation)
-        display_query.bindValue(":sourceName", self.target_select.currentText())
-        display_query.bindValue(":targetName", self.source_select.currentText())
-        display_query.bindValue(":startTime", self.startTime)
-        display_query.bindValue(":endTime", self.endTime)
-        display_query.exec()
-        self.table.setItemDelegateForColumn(COLUMNS[self.meter][self.everyone][-1][BAR], DELEGATES[self.meter][self.everyone])
-        self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
-        for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
-            self.table.hideColumn(i)
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
-        self.table.horizontalHeader().setSectionResizeMode(COLUMNS[self.meter][self.everyone][-1][BAR], QHeaderView.ResizeMode.Stretch)
-
     def queryHealing(self):
         display_query = QSqlQuery()
-        if self.everyone:
-            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
-                with open('queries/healing_done_all-all.sql', 'r') as f:
-                    display_query.prepare(f.read())
-            else:
-                with open('queries/healing_done_all-1.sql', 'r') as f:
-                    display_query.prepare(f.read())
-                display_query.bindValue(":targetName", self.target_select.currentText())
-            display_query.bindValue(":affiliation", self.source_affiliation)
-        else:
-            if self.target_select.currentData() == AFFILIATION[self.source_affiliation]:
-                with open('queries/healing_done_1-all.sql', 'r') as f:
-                    display_query.prepare(f.read())
-            else:
-                with open('queries/healing_done_1-1.sql', 'r') as f:
-                    display_query.prepare(f.read())
-                display_query.bindValue(":targetName", self.target_select.currentText())
-            display_query.bindValue(":sourceName", self.source_select.currentText())
+        with open(getPath(self.meter, self.everyone, self.everyoneTarget), 'r') as f:
+            display_query.prepare(f.read())
+        display_query.bindValue(":affiliation", self.source_affiliation)
+        display_query.bindValue(":targetName", self.target_select.currentText())
+        display_query.bindValue(":sourceName", self.source_select.currentText())
         display_query.bindValue(":startTime", self.startTime)
         display_query.bindValue(":endTime", self.endTime)
         display_query.exec()
@@ -652,13 +604,13 @@ class MainWindow(QMainWindow):
     def updateTargetAffiliation(self):
         if self.meter in (DAMAGEDONE, DAMAGETAKEN, DEBUFFS, DEATHS):
             self.target_affiliation = 1 - self.source_affiliation
-        elif self.meter in (HEALING, BUFFS):
+        elif self.meter in (HEALINGDONE, HEALINGTAKEN, BUFFS):
             self.target_affiliation = self.source_affiliation
         else:
             self.target_affiliation = 0
 
     def tableClicked(self, item):
-        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALING):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN):
             if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
                 self.source_select.setCurrentIndex(new_source)
         elif self.meter == DEATHS:
@@ -1056,6 +1008,9 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':sourceName', targetName if everyoneTarget or everyone else index.siblingAtColumn(13).data())
                 display_query.bindValue(':spellID', int(index.siblingAtColumn(11).data() or '0'))
                 display_query.bindValue(':ownerName', index.siblingAtColumn(14).data())
+            elif meter == HEALINGDONE:
+                #display_query.bindValue(':targtName', )
+                display_query.bindValue(':sourceName', index.siblingAtColumn(8 if everyone else 0).data())
             display_query.bindValue(':startTime', self.startTime)
             display_query.bindValue(':endTime', self.endTime)
             print(display_query.exec())
@@ -1072,7 +1027,7 @@ class tooltipTable(QTableView):
             self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
 
     def showTooltip(self, coords):
-        if self.meter in (DAMAGEDONE, DAMAGETAKEN):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE):
             self.tooltip.move(self.viewport().mapToGlobal(coords + QPoint(10, 20)))
             self.tooltip.show()
         else:
