@@ -1066,8 +1066,11 @@ class tooltipTable(QTableView):
             self.tooltip_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
             self.tooltip_table.horizontalHeader().setSectionResizeMode(COLUMNS[meter][everyone][index.column()][BAR], QHeaderView.ResizeMode.Fixed)
             self.tooltip_table.setColumnWidth(COLUMNS[meter][everyone][index.column()][BAR], 200)
-            for i in range(COLUMNS[self.meter][self.everyone][index.column()][HIDE], self.tooltip_table.horizontalHeader().count()):
-                self.tooltip_table.hideColumn(i)
+            for i in range(self.tooltip_table.horizontalHeader().count()):
+                if i < COLUMNS[meter][everyone][index.column()][HIDE]:
+                    self.tooltip_table.showColumn(i)
+                else:
+                    self.tooltip_table.hideColumn(i)
             self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
 
     def showTooltip(self, coords):
