@@ -55,13 +55,13 @@ COLUMNS = {
             -1: {TYPE: HERO, BAR: 2, HERO: 6, HIDE: 6},
             0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
             2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
-            5: {TYPE: INFO, BAR: 2, HIDE: 4}
+            5: {TYPE: INFO, BAR: 2, HIDE: 4},
         },
         not EVERYONE: {
             -1: {TYPE: SPELL, BAR: 2, ICON: 9, SCHOOL: 10, HIDE: 9},
             0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
             2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 7, HIDE: 7},
-            5: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 4, HIDE: 4}
+            5: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 4, HIDE: 4},
         },
     },
     HEALING: {
@@ -1031,7 +1031,7 @@ class tooltipTable(QTableView):
                         if os.path.exists(path):
                             self.createTooltip(index, self.meter, self.everyone, self.target, self.everyoneTarget, path)
                     if os.path.exists(path):
-                        self.showTooltip(index, coords)
+                        self.showTooltip(coords)
                     else:
                         self.hideTooltip()
             elif event.type() == QEvent.Type.Leave:
@@ -1063,13 +1063,14 @@ class tooltipTable(QTableView):
             print(display_query.exec())
             self.tooltip_table.setItemDelegateForColumn(COLUMNS[meter][everyone][index.column()][BAR], meterDelegate(meter, everyone, index.column()))
             self.tooltip_table.setModel(meterSqlTableModel(display_query, meter, everyone, index.column()))
-            self.tooltip_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Fixed)
-            self.tooltip_table.setColumnWidth(2, 200)
+            self.tooltip_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+            self.tooltip_table.horizontalHeader().setSectionResizeMode(COLUMNS[meter][everyone][index.column()][BAR], QHeaderView.ResizeMode.Fixed)
+            self.tooltip_table.setColumnWidth(COLUMNS[meter][everyone][index.column()][BAR], 200)
             for i in range(COLUMNS[self.meter][self.everyone][index.column()][HIDE], self.tooltip_table.horizontalHeader().count()):
                 self.tooltip_table.hideColumn(i)
             self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
 
-    def showTooltip(self, index, coords):
+    def showTooltip(self, coords):
         if self.meter in (DAMAGEDONE, DAMAGETAKEN):
             self.tooltip.move(self.viewport().mapToGlobal(coords + QPoint(10, 20)))
             self.tooltip.show()

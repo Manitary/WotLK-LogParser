@@ -1,21 +1,17 @@
 WITH calc AS (
     SELECT
         IIF(crit > 0, 'Crit', 'Hit') AS crit
-        , (dmg + absorbed) * 100.0 / (SUM(dmg) OVER() + SUM(absorbed) OVER()) AS pct
-        , dmg + absorbed AS dmg
-        , mindmg
-        , maxdmg
-        , avgdmg
-        , school
+        , SUM(dmg) * 100.0 / (SUM(SUM(dmg)) OVER()) AS pct
+        , SUM(dmg) AS dmg
+        , MIN(dmg) AS mindmg
+        , MAX(dmg) AS maxdmg
+        , AVG(dmg) AS avgdmg
+        , MAX(school & 1) + MAX(school & 2) + MAX(school & 4) + MAX(school & 8) + MAX(school & 16) + MAX(school & 32) + MAX(school & 64) AS school
     FROM (
         SELECT
-            critical AS crit
-            , SUM(amount) AS dmg
-            , SUM(absorbed) AS absorbed
-            , MIN(amount + absorbed) AS mindmg
-            , MAX(amount + absorbed) AS maxdmg
-            , AVG(amount + absorbed) AS avgdmg
-            , MAX(school & 1) + MAX(school & 2) + MAX(school & 4) + MAX(school & 8) + MAX(school & 16) + MAX(school & 32) + MAX(school & 64) AS school
+            COALESCE(critical, 0) AS crit
+            , COALESCE(amount, 0) + COALESCE(absorbed, 0) AS dmg
+            , school
         FROM events
         LEFT JOIN pets
         ON events.sourceGUID = pets.petGUID
@@ -35,17 +31,17 @@ WITH calc AS (
                 isPet IS NULL
             OR  ownerName = :ownerName
         )
-        GROUP BY critical
     )
+    GROUP BY crit
 )
 SELECT
     crit
     , PRINTF('%.2f%%', pct) AS pct
     , pct / MAX(pct) OVER() AS relpct
     , PRINTF('%,d', dmg) AS dmg
-    , PRINTF('%,d', mindmg) AS min
-    , PRINTF('%,d', maxdmg) AS max
-    , PRINTF('%,d', avgdmg) AS avg
+    , PRINTF('%,d', mindmg) AS mindmg
+    , PRINTF('%,d', maxdmg) AS maxdmg
+    , PRINTF('%,d', avgdmg) AS avgdmg
     , school
 FROM calc
 WHERE dmg > 0
