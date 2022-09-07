@@ -46,7 +46,7 @@ COLUMNS = {
         not EVERYONE: {
             -1: {TYPE: SPELL, BAR: 2, ICON: 11, SCHOOL: 12, HIDE: 11},
             0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
-            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 7, HIDE: 4},
+            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 7, HIDE: 7},
             6: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 4, HIDE: 4},
         },
     },
@@ -60,7 +60,7 @@ COLUMNS = {
         not EVERYONE: {
             -1: {TYPE: SPELL, BAR: 2, ICON: 9, SCHOOL: 10, HIDE: 9},
             0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
-            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 7, HIDE: 4},
+            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 7, HIDE: 7},
             5: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 4, HIDE: 4}
         },
     },

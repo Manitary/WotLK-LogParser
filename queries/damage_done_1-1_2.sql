@@ -43,9 +43,9 @@ SELECT
     , PRINTF('%.2f%%', pct) AS pct
     , pct / MAX(pct) OVER() AS relpct
     , PRINTF('%,d', dmg) AS dmg
-    , mindmg
-    , maxdmg
-    , avgdmg
+    , PRINTF('%,d', mindmg) AS min
+    , PRINTF('%,d', maxdmg) AS max
+    , PRINTF('%,d', avgdmg) AS avg
     , school
 FROM calc
 ORDER BY relpct DESC
