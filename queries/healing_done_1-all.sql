@@ -42,7 +42,6 @@ WITH calc AS (
             OR  ownerName = :sourceName
         )
         AND eventName LIKE '%HEAL'
-        AND spellName IS NOT NULL
         GROUP BY sp
     ) t
     LEFT JOIN (
@@ -63,7 +62,6 @@ WITH calc AS (
                 eventName = 'SPELL_CAST_SUCCESS'
             OR  eventName = 'SPELL_CAST_START'
         )
-        AND spellName IS NOT NULL
         GROUP BY sp
     ) c
     ON t.sp = c.sp
