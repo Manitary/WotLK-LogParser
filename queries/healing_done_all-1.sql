@@ -11,43 +11,43 @@ WITH calc AS (
         , COUNT(name) AS num
     FROM (
         SELECT
-            COALESCE(p.ownerName, s.name) AS name
-            , SUM(s.heal) AS heal
-            , SUM(s.overheal) AS overheal
-            , COALESCE(p.ownerGUID, s.sguid) AS owner
+            COALESCE(ownerName, name) AS name
+            , SUM(heal) AS heal
+            , SUM(overheal) AS overheal
+            , COALESCE(ownerGUID, sourceGUID) AS owner
         FROM (
             SELECT
-                events.sourceName AS name
-                , SUM(events.amount) + SUM(events.absorbed) AS heal
-                , SUM(events.overhealing) AS overheal
-                , events.sourceGUID AS sguid
+                sourceName AS name
+                , SUM(amount) + SUM(absorbed) AS heal
+                , SUM(overhealing) AS overheal
+                , sourceGUID
             FROM events
             JOIN actors
             ON events.sourceGUID = actors.unitGUID
             WHERE
-                events.timestamp >= :startTime
-            AND events.timestamp <= :endTime
+                timestamp >= :startTime
+            AND timestamp <= :endTime
             AND (
-                    actors.isPlayer = :affiliation
-                OR  actors.isPet = :affiliation
+                    isPlayer = :affiliation
+                OR  isPet = :affiliation
                 OR (
                         :affiliation = 0
-                    AND actors.isNPC = 1
+                    AND isNPC = 1
                 )
             )
             AND targetName = :targetName
-            AND events.eventName LIKE '%HEAL'
-            GROUP BY events.sourceGUID
+            AND eventName LIKE '%HEAL'
+            GROUP BY sourceGUID
         ) s
         LEFT JOIN pets p
-        ON s.sguid = p.petGUID
+        ON s.sourceGUID = p.petGUID
         GROUP BY owner
     ) m
     LEFT JOIN specs
     ON m.owner = specs.unitGUID
     WHERE
-        specs.timestamp = :startTime
-    OR  specs.timestamp IS NULL
+        timestamp = :startTime
+    OR  timestamp IS NULL
     GROUP BY name
 )
 SELECT
