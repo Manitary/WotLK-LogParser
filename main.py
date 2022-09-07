@@ -1,14 +1,15 @@
 import sys, os, re
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView, QDialog
-from PyQt6.QtGui import QAction, QFont, QPixmap, QBrush, QLinearGradient, QIcon, QStandardItemModel, QStandardItem
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView, QDialog, QCheckBox, QLineEdit, QGridLayout
+from PyQt6.QtGui import QAction, QPixmap, QBrush, QLinearGradient, QIcon, QStandardItemModel, QStandardItem
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
-from PyQt6.QtCore import Qt, QRectF, QEvent, QPoint, QSize
+from PyQt6.QtCore import Qt, QRectF, QEvent, QPoint
 import pyqtgraph as pg
 from tools import flattenIntervals, plotAuras
-import time, datetime
+import datetime
 from dateutil.parser import parse as timeparse
-import zipfile, rarfile
-import parser, pet_recognition, class_recognition
+#import zipfile, rarfile
+import parser, class_recognition
+from pathlib import Path
 
 ALL = "AllUnits"
 ALL_AURAS = "All auras"
@@ -662,7 +663,7 @@ class MainWindow(QMainWindow):
             if self.create_pet_editing_window:
                 self.create_pet_editing_window.show()
             else:
-                self.create_pet_editing_window = pet_recognition.PetEditing(self)
+                self.create_pet_editing_window = PetEditing(self)
                 self.create_pet_editing_window.show()
 
     def populateAuraSelector(self):
@@ -1050,6 +1051,161 @@ def isTargetEveryone(meter, sourceAffiliation, target):
 
 def getPath(meter, everyone, everyoneTarget, column = None):
     return f"queries/{meter.replace(' ', '_').lower()}_{'all' if everyone else 1}-{'all' if everyoneTarget else 1}{'_' + str(column) if column != None else ''}.sql"
+
+class PetEditing(QDialog):
+    def __init__(self, parent = None):
+        super().__init__(parent)
+        self.initializeUI()
+
+    def initializeUI(self):
+        self.setMinimumWidth(700)
+        self.setFixedHeight(200)
+        self.setWindowTitle(Path(self.parent().file_name).name)
+        self.setUpWindow()
+    
+    def setUpWindow(self):
+        self.allGUID = True
+        self.unassignedOnly = False
+        self.main_vbox = QVBoxLayout()
+        self.all_pets_cb = QCheckBox("Unassigned pets only", self)
+        self.all_pets_cb.toggled.connect(self.toggleUnassigned)
+        self.show_guid_cb = QCheckBox("Separate pets by GUID", self)
+        self.show_guid_cb.toggled.connect(self.toggleAllGUID)
+        self.pet_label = QLabel("Pet")
+        self.pet_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.pet_selector = QComboBox()
+        self.current_owner_label = QLabel("Current owner")
+        self.current_owner_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.current_owner = QLineEdit('-')
+        self.current_owner.setEnabled(False)
+        self.owner_label = QLabel("Owner")
+        self.owner_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.owner_selector = QComboBox()
+        self.owner_clear = QPushButton("X", self)
+        self.owner_clear.setMaximumSize(24, 24)
+        self.owner_clear.clicked.connect(self.clearOwner)
+        self.owner_layout = QHBoxLayout()
+        self.owner_layout.addWidget(self.owner_selector)
+        self.owner_layout.addWidget(self.owner_clear)
+        self.main_grid = QGridLayout()
+        self.main_grid.addWidget(self.pet_label, 0, 0)
+        self.main_grid.addWidget(self.current_owner_label, 0, 1)
+        self.main_grid.addWidget(self.owner_label, 0, 2)
+        self.main_grid.addWidget(self.pet_selector, 1, 0)
+        self.main_grid.addWidget(self.current_owner, 1, 1)
+        self.main_grid.addLayout(self.owner_layout, 1, 2)
+        self.link_button = QPushButton("Update", self)
+        self.link_button.clicked.connect(self.updateOwnership)
+        self.ok_button = QPushButton("Done", self)
+        self.ok_button.clicked.connect(self.close)
+        self.main_vbox.addWidget(self.all_pets_cb)
+        self.main_vbox.addWidget(self.show_guid_cb)
+        self.main_vbox.addLayout(self.main_grid)
+        self.main_vbox.addWidget(self.link_button)
+        self.main_vbox.addWidget(self.ok_button)
+        self.setLayout(self.main_vbox)
+        self.all_pets_cb.toggle()
+        self.show_guid_cb.toggle()
+        self.updateOwnersList()
+        self.pet_selector.textActivated.connect(self.currentOwner)
+        
+    def updateOwnersList(self):
+        q = QSqlQuery()
+        q.exec("SELECT unitName, unitGUID FROM actors WHERE isPlayer = 1 ORDER BY unitName")
+        self.owner_selector.clear()
+        self.owner_selector.addItem('-', (None, None))
+        while q.next():
+            self.owner_selector.addItem(q.value(0), (q.value(0), q.value(1)))
+
+    def clearOwner(self):
+        self.owner_selector.setCurrentIndex(0)
+
+    def currentOwner(self):
+        q = QSqlQuery()
+        if self.allGUID:
+            q.prepare("SELECT ownerName FROM pets WHERE petName = :petName AND petGUID = :petGUID")
+            q.bindValue(':petGUID', self.pet_selector.currentData()[1])
+            q.bindValue(':petName', self.pet_selector.currentData()[0])
+            q.exec()
+            if q.next():
+                self.current_owner.setText(q.value(0))
+            else:
+                self.current_owner.setText('-')
+        else:
+            q.prepare("SELECT a.unitName, p.ownerName FROM actors a LEFT JOIN pets p ON a.unitGUID = p.petGUID WHERE a.isPet = 1 AND a.unitName = :petName")
+            q.bindValue(':petName', self.pet_selector.currentData()[0])
+            q.exec()
+            owners = {}
+            while q.next():
+                owner = q.value(1) or 'Unknown'
+                if owner in owners:
+                    owners[owner] += 1
+                else:
+                    owners[owner] = 1
+            self.current_owner.setText(', '.join(f"{owner} ({owners[owner]})" for owner in owners))
+
+    def updatePetList(self):
+        q = QSqlQuery()
+        if self.allGUID:
+            if self.unassignedOnly:
+                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 AND pets.ownerGUID IS NULL ORDER BY unitName, unitGUID")
+            else:
+                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 ORDER BY unitName, unitGUID")
+        else:
+            if self.unassignedOnly:
+                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 AND pets.ownerGUID IS NULL GROUP BY unitName ORDER BY unitName")
+            else:
+                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 GROUP BY unitName ORDER BY unitName")
+        self.pet_selector.clear()
+        while q.next():
+            self.pet_selector.addItem(f"{q.value(0)}{f' ({q.value(1)})' if self.allGUID else ''}", (q.value(0), q.value(1)))
+    
+    def toggleAllGUID(self, checked):
+        self.allGUID = checked
+        self.updatePetList()
+    
+    def toggleUnassigned(self, checked):
+        self.unassignedOnly = checked
+        self.updatePetList()
+
+    def updateOwnership(self):
+        answer = QMessageBox.question(self, "Confirm?", "Confirm changes?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        if answer == QMessageBox.StandardButton.Yes:
+            DB.transaction()
+            q = QSqlQuery()
+            name, guid = self.owner_selector.currentData()
+            if self.allGUID:
+                if name:
+                    q.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName) ON DUPLICATE KEY UPDATE ownerGUID = :ownerGUID, ownerName = :ownerName")
+                    q.bindValue(':petName', self.pet_selector.currentData()[0])
+                    q.bindValue(':petGUID', self.pet_selector.currentData()[1])
+                    q.bindValue(':ownerName', name)
+                    q.bindValue(':ownerGUID', guid)
+                else:
+                    q.prepare("DELETE FROM pets WHERE petName = :petName AND petGUID = :petGUID")
+                    q.bindValue(':petName', self.pet_selector.currentData()[0])
+                    q.bindValue(':petGUID', self.pet_selector.currentData()[1])
+                q.exec()
+            else:
+                if name:
+                    s = QSqlQuery()
+                    s.prepare("SELECT unitName, unitGUID FROM actors WHERE isPet = 1 AND unitName = :petName")
+                    s.bindValue(':petName', self.pet_selector.currentData()[0])
+                    s.exec()
+                    q.prepare("INSERT OR REPLACE INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName)")
+                    while s.next():
+                        q.bindValue(':petName', s.value(0))
+                        q.bindValue(':petGUID', s.value(1))
+                        q.bindValue(':ownerName', name)
+                        q.bindValue(':ownerGUID', guid)
+                        q.exec()
+                else:
+                    q.prepare("DELETE FROM pets WHERE petName = :petName")
+                    q.bindValue(':petName', self.pet_selector.currentData()[0])
+                    q.exec()
+            DB.commit()
+            QMessageBox.information(self, "Done", "Done", QMessageBox.StandardButton.Ok)
+            self.currentOwner()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)
