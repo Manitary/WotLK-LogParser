@@ -25,7 +25,7 @@ HEALINGTAKEN = "Healing Received"
 DEATHS = "Deaths"
 BUFFS = "Buffs"
 DEBUFFS = "Debuffs"
-METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN, DEATHS, BUFFS, DEBUFFS]
+METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, DEATHS, BUFFS, DEBUFFS]
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
 EVERYONE = True
 ICON = 'icon'
@@ -785,7 +785,7 @@ class deathSqlTableModel(QSqlTableModel):
                     return QPixmap(PATH_HERO(icon)).scaledToHeight(25)
             elif role == Qt.ItemDataRole.ForegroundRole:
                 try:
-                    return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(6).data()[:-2]])
+                    return QBrush(class_recognition.CLASS_COLOUR[index.siblingAtColumn(6).data()[:-2]][0])
                 except:
                     pass
         elif index.column() == 3:
@@ -840,7 +840,7 @@ class deathRecapSqlTableModel(QSqlTableModel):
                     return QPixmap(PATH_HERO(icon)).scaledToHeight(25)
             elif role == Qt.ItemDataRole.ForegroundRole:
                 try:
-                    if (colour := class_recognition.CLASS_COLOUR[index.siblingAtColumn(5).data()[:-2]]):
+                    if (colour := class_recognition.CLASS_COLOUR[index.siblingAtColumn(5).data()[:-2]][0]):
                         return QBrush(colour)
                 except:
                     pass
