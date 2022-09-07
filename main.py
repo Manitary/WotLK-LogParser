@@ -916,10 +916,8 @@ class meterDelegate(QAbstractItemDelegate):
                 colour = [Qt.GlobalColor.gray]
             x = option.rect.topLeft().x()
             y = option.rect.topLeft().y()
-            w = option.rect.topRight().x() - x
-            h = option.rect.bottomLeft().y() - y
-            w = (w - 2 * BAR_OFFSET_X) * scale
-            h = (h - 2 * BAR_OFFSET_Y)
+            w = (option.rect.topRight().x() - x - 2 * BAR_OFFSET_X) * scale
+            h = option.rect.bottomLeft().y() - y - 2 * BAR_OFFSET_Y
             x = x + BAR_OFFSET_X
             y = y + BAR_OFFSET_Y
             painter.setPen(Qt.PenStyle.NoPen)
