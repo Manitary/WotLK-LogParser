@@ -1009,7 +1009,7 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':spellID', int(index.siblingAtColumn(11).data() or '0'))
                 display_query.bindValue(':ownerName', index.siblingAtColumn(14).data())
             elif meter == HEALINGDONE:
-                #display_query.bindValue(':targtName', )
+                display_query.bindValue(':targetName', targetName)
                 display_query.bindValue(':sourceName', index.siblingAtColumn(8 if everyone else 0).data())
             display_query.bindValue(':startTime', self.startTime)
             display_query.bindValue(':endTime', self.endTime)
