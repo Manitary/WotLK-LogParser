@@ -36,9 +36,9 @@ class parse:
             self.populateActors()
             self.populateEncounters()
             self.assignPets()
-            self.testQueries()
             self.populateAuras()
             self.assignSpecs()
+            self.testQueries()
         self.db.close()
     
     def generateFileName(self):
@@ -382,6 +382,30 @@ class parse:
         tq.exec('SELECT ownerName, petName FROM pets GROUP BY ownerName, petName')
         while (tq.next()):
             print(tq.value(0), tq.value(1))
+
+        #Snake trap
+        t = QSqlQuery('SELECT timeStart, timeEnd from ENCOUNTERS ORDER BY timeStart')
+        h = QSqlQuery()
+        h.prepare("SELECT e.timestamp, sourceGUID, sourceName, spec FROM events e JOIN specs s ON e.sourceGUID = s.unitGUID WHERE eventName = 'SPELL_CREATE' AND spellID = 34600 AND e.timestamp >= :timeStart AND e.timestamp <= :timeEnd AND s.timestamp = :timeStart ORDER BY id")
+        p = QSqlQuery()
+        p.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) SELECT targetGUID, targetName, :ownerGUID, :ownerName FROM events WHERE eventName = 'SPELL_SUMMON' AND spellID = 57879 AND timestamp >= :timeCast AND timestamp <= :timeExpire ORDER BY id LIMIT :limit ON CONFLICT DO NOTHING")
+        t.exec()
+        while t.next():
+            t0, t1 = t.value(0), t.value(1)
+            h.bindValue(':timeStart', t0)
+            h.bindValue(':timeEnd', t1)
+            h.exec()
+            while h.next():
+                s0, unit, name, spec = h.value(0), h.value(1), h.value(2), h.value(3)
+                p.bindValue(':ownerGUID', unit)
+                p.bindValue(':ownerName', name)
+                p.bindValue(':timeCast', s0)
+                p.bindValue(':timeExpire', formatTimestamp(timeparse(s0) + datetime.timedelta(seconds = 30))[:-3])
+                if spec == 'c3-3':
+                    p.bindValue(':limit', 14)
+                elif spec in ('c3-1', 'c3-2'):
+                    p.bindValue(':limit', 8)
+                p.exec()
 
     def assignSpecs(self):
         query = QSqlQuery()
