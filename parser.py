@@ -33,13 +33,12 @@ class parse:
         self.createConnection()
         if not self.duplicate:
             self.populateDB()
-        #self.populateDB()
-        #self.populateActors()
-        #self.populateEncounters()
-        #self.assignPets()
-        #self.testQueries()
-        #self.populateAuras()
-        #self.assignSpecs()
+            self.populateActors()
+            self.populateEncounters()
+            self.assignPets()
+            self.testQueries()
+            self.populateAuras()
+            self.assignSpecs()
         self.db.close()
     
     def generateFileName(self):
@@ -259,6 +258,9 @@ class parse:
                         query.bindValue(":amount", int(args[i]))
                 '''
                 query.exec()
+        
+        QSqlQuery("UPDATE events SET spellSchool = 32 WHERE sourceName = 'Shadowfiend' AND eventName LIKE 'SWING%'").exec()
+        QSqlQuery("UPDATE events SET spellSchool = 4 WHERE sourceName = 'Greater Fire Elemental' AND eventName LIKE 'SWING%'").exec()
         print('table created')
 
     def testQueries(self):
