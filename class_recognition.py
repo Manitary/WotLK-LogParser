@@ -14,6 +14,7 @@ DAMAGEPERIODIC = 'SPELL_PERIODIC_DAMAGE'
 SUMMON = 'SPELL_SUMMON'
 HEAL = 'SPELL_HEAL'
 HEALPERIODIC = 'SPELL_PERIODIC_HEAL'
+CAST = 'SPELL_CAST_SUCCESS'
 
 CLASS_COLOUR = {
   HUNTER: (0xFFABD473,),
@@ -240,6 +241,12 @@ spell_spec = {
         'class': MAGE,
         'spec': 3,
         'type': DAMAGE,
+    },
+    31687: {
+        'name': 'Summon Water Elemental',
+        'class': MAGE,
+        'spec': 3,
+        'type': CAST,
     },
     #Paladin - Holy
     53563: {
