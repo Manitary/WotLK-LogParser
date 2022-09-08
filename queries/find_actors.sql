@@ -24,6 +24,9 @@ INNER JOIN actors
 ON actors.unitName = n.sourceName
 LEFT JOIN specs
 ON actors.unitGUID = specs.unitGUID
+WHERE
+    specs.timestamp = :startTime
+OR  specs.timestamp IS NULL
 GROUP BY actors.unitName
 ORDER BY
     actors.isPlayer DESC
