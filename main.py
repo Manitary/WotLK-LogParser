@@ -370,7 +370,6 @@ class MainWindow(QMainWindow):
         else:
             with open('queries/deaths_1.sql', 'r') as f:
                 display_query.prepare(f.read())
-            display_query.bindValue(":affiliation", self.source_affiliation)
             display_query.bindValue(":endTime", self.endTime)
             display_query.bindValue(":startTime", self.startTime)
             display_query.bindValue(":targetGUID", self.source_select.currentData()[1])
