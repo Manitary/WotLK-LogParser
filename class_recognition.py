@@ -357,6 +357,7 @@ spell_spec = {
         'spec': 2,
         'type': DAMAGE,
     },
+    #Rogue - Subtlety
     48660: {
         'name': 'Hemorrhage',
         'class': ROGUE,
@@ -369,6 +370,7 @@ spell_spec = {
         'spec': 3,
         'type': AURA,
     },
+    #Shaman - Elemental
     16166: {
         'name': 'Elemental Mastery',
         'class': SHAMAN,
