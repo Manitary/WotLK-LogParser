@@ -4,31 +4,24 @@ A personal mini-project to create a program to parse and view combat logs of Wor
 
 It may become deprecated as soon as WotLK Classic is released, except for private servers that run the original WotLK.
 
-## 0.6
+## 0.6.1
 New:
-* Added tooltip tables on relevant columns of various meters (Damage Done/Taken, Healing Done)
-* Added a toggle to swap between gained and applied (de)buffs
-* Added the option to filter a single buff
-* Interacting with the buff table should now filter results properly
+* The pet assignment window now allows filtering by encounter, and shows the correct spec icon of possible owners accordingly. This should considerably simplify the process of manually assigning an owner to stranded pets
+* The Deaths log loads noticeably faster
+* Pets summoned by Snake Trap are automatically assigned an owner when parsing the combat log
+* Improved detection of Frost Mage spec
 
 Bugfix:
-* Fixed an issue with simultaneous death events that resulted in missing entries
-* Fixed an issue with sorting simultaneous events in death logs
-* Crit % is now displayed in damage breakdown tables
-* Damage Done calculations now take fully absorbed hits into account
-* Fully blocked or resisted hits are now parsed correctly
-* Table columns should now automatically resize in the intended way
-* Changed damage taken calculations: the total amount only includes effective and absorbed damage, as blocked and resisted damage need not to be healed or shielded from
-* Fixed various other calculations in the breakdown tables
-* Units with the same name should now be merged in both damage and healing global meters
-* Fixed some issues with displaying the colour of multi-school spells, or of aggregated spells with the same name but different school (e.g. some creatures deal non-physical damage with their auto-attacks)
-* Fixed an issue that caused manual pet pairing not to work
+* Shadowfiend's and Greater Fire Elemental's melee attacks now should display the correct school (Shadow and Fire, respectively)
+* The unit selection menu now shows the correct spec based on the selected encounter
 
 ----
 
 ## Known issues:
 
 * Hunter's Feign Death does not appear in the CombatLog -> extra 'deaths' in the Death Log
+* Snake Trap's pets may be incorrectly assigned in specific edge cases
+* Pets meter do not display correctly
 * Aura tracking may be inaccurate, possibly due to bugs, but mostly due to how poor the Combat Log is in this regard.
 * Aura tracking may result in unwanted additional results for certain permanent auras (e.g. stance changes for DK, various permanent auras on pets)
 * Encounter parsing has some issues, like identifying wipe or kill on multi-target fights (e.g. The Four Horsemen)
@@ -39,7 +32,6 @@ Bugfix:
 ## Upcoming features (hopefully)
 
 * Add a undo-redo function to quickly move through recently applied filters
-* Add pet <-> owner pairing of creatures summoned by Snake Trap 
 * Add absorb log
 * Add a graph for the currently selected meter
 * Add a button to re-parse pet <-> owner coupling, to rewind mistakes done with manual pairing
@@ -90,13 +82,49 @@ Buff uptime
 
 ![Buff uptime](https://i.imgur.com/jrOAFid.png)
 
-Manual pet assignment
+----
 
-![Manual pet assignment](https://i.imgur.com/YWHBwKF.png)
+## Example of manual pet assignment
+
+In this fight (Patchwerk) there are 8 stranded Army of the Dead Ghoul, summoned by a DK through Army of the Dead:
+
+![The combat log shows 8 stranded pets](https://i.imgur.com/eOrhCKO.png)
+
+Opening the pet assigment window, we can select the encounter, and see that 16 Army of the Dead Ghoul participated in the fight, 8 of which are the stranded ones, while the other 8 are already assigned to a DK:
+
+![Check the pet owners](https://i.imgur.com/MQOrqSL.png)
+
+We can assign an owner to the 8 stranded Army of the Dead Ghoul by selecting the other DK from the player list and updating:
+
+![Assign an owner to the pets without one](https://i.imgur.com/bCrBzOa.png)
+
+After closing the pet assignment window, we can confirm the successfull assignment:
+
+![The stranded pets now appear in the correct owner's meter](https://i.imgur.com/qFm6KUf.png)
 
 ----
 
 ## Past versions
+
+### 0.6
+New:
+* Added tooltip tables on relevant columns of various meters (Damage Done/Taken, Healing Done)
+* Added a toggle to swap between gained and applied (de)buffs
+* Added the option to filter a single buff
+* Interacting with the buff table should now filter results properly
+
+Bugfix:
+* Fixed an issue with simultaneous death events that resulted in missing entries
+* Fixed an issue with sorting simultaneous events in death logs
+* Crit % is now displayed in damage breakdown tables
+* Damage Done calculations now take fully absorbed hits into account
+* Fully blocked or resisted hits are now parsed correctly
+* Table columns should now automatically resize in the intended way
+* Changed damage taken calculations: the total amount only includes effective and absorbed damage, as blocked and resisted damage need not to be healed or shielded from
+* Fixed various other calculations in the breakdown tables
+* Units with the same name should now be merged in both damage and healing global meters
+* Fixed some issues with displaying the colour of multi-school spells, or of aggregated spells with the same name but different school (e.g. some creatures deal non-physical damage with their auto-attacks)
+* Fixed an issue that caused manual pet pairing not to work
 
 ### 0.5.4
 New:
