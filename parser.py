@@ -33,8 +33,8 @@ class parse:
         self.createConnection()
         if not self.duplicate:
             self.populateDB()
-            self.populateActors()
             self.populateEncounters()
+            self.populateActors()
             self.assignPets()
             self.populateAuras()
             self.assignSpecs()
@@ -316,7 +316,7 @@ class parse:
         for encounter in encounter_creature:
             encounter_times = []
             encounter_GUID = ''
-            query.prepare("SELECT unitGUID FROM actors WHERE unitName = :unitName")
+            query.prepare("SELECT DISTINCT CASE WHEN sourceName = :unitName THEN sourceGUID ELSE targetGUID END FROM events WHERE sourceName = :unitName OR targetName = :unitName")
             query.bindValue(":unitName", encounter_creature[encounter][0])
             query.exec()
             while (query.next()):
