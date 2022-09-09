@@ -1,33 +1,20 @@
 SELECT
-    actors.unitName
-    , actors.isPlayer
-    , actors.isPet
-    , actors.isNPC
-    , actors.unitGUID
+    a.unitName
+    , isPlayer
+    , isPet
+    , isNPC
+    , a.unitGUID
     , spec
-FROM (
-    SELECT sourceName
-    FROM events
-    WHERE
-            events.timestamp >= :startTime
-        AND events.timestamp <= :endTime
-    GROUP BY sourceName
-    UNION
-    SELECT targetName
-    FROM events
-    WHERE
-            events.timestamp >= :startTime
-        AND events.timestamp <= :endTime
-    GROUP BY targetName
-) n
-INNER JOIN actors
-ON actors.unitName = n.sourceName
-LEFT JOIN specs
-ON actors.unitGUID = specs.unitGUID
+FROM actors a
+LEFT JOIN specs s
+ON a.unitGUID = s.unitGUID
 WHERE
-    specs.timestamp = :startTime
-OR  specs.timestamp IS NULL
-GROUP BY actors.unitName
+    encounterTIme = :startTime
+AND (
+        timestamp = :startTime
+    OR  timestamp IS NULL
+)
+GROUP BY a.unitName
 ORDER BY
-    actors.isPlayer DESC
-    , actors.unitName
+    a.isPlayer DESC
+    , a.unitName

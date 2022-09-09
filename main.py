@@ -1,5 +1,5 @@
 import sys, os, re
-from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView, QDialog, QCheckBox, QLineEdit, QGridLayout
+from PyQt6.QtWidgets import QApplication, QMainWindow, QMessageBox, QFileDialog, QComboBox, QLabel, QVBoxLayout, QWidget, QTableView, QHBoxLayout, QAbstractItemView, QPushButton, QAbstractItemDelegate, QStyledItemDelegate, QHeaderView, QDialog, QCheckBox, QLineEdit, QGridLayout, QSpacerItem, QSizePolicy
 from PyQt6.QtGui import QAction, QPixmap, QBrush, QLinearGradient, QIcon, QStandardItemModel, QStandardItem
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery, QSqlTableModel
 from PyQt6.QtCore import Qt, QRectF, QEvent, QPoint
@@ -177,7 +177,7 @@ class MainWindow(QMainWindow):
             self.setUpParse()
 
     def setUpMainWindow(self):
-        self.create_pet_editing_window = None
+        self.pet_editing_window = None
         self.encounter_select = QComboBox()
         self.meter_select = QComboBox()
         self.meter_select.addItems(METERS)
@@ -273,6 +273,7 @@ class MainWindow(QMainWindow):
         self.target_select.blockSignals(False)
         self.spell_select.blockSignals(False)
 
+        self.updateStatus()
         self.updateUnitList()
         print('setup done')
 
@@ -550,8 +551,7 @@ class MainWindow(QMainWindow):
         unit_query = QSqlQuery()
         with open('queries/find_actors.sql', 'r') as f:
             unit_query.prepare(f.read())
-        unit_query.bindValue(":startTime", self.encounter_select.currentData()[0])
-        unit_query.bindValue(":endTime", self.encounter_select.currentData()[1])
+        unit_query.bindValue(":startTime", self.startTime)
         unit_query.exec()
         while unit_query.next():
             #Take into account mind controlled NPC as friendly (isPet = 1, isNPC = 1)
@@ -659,11 +659,12 @@ class MainWindow(QMainWindow):
 
     def editPetsOwners(self, database = None):
         if self.file_name:
-            if self.create_pet_editing_window:
-                self.create_pet_editing_window.show()
+            if self.pet_editing_window:
+                self.pet_editing_window.show()
             else:
-                self.create_pet_editing_window = PetEditing(self)
-                self.create_pet_editing_window.show()
+                self.pet_editing_window = PetEditing(self)
+                self.pet_editing_window.finished.connect(self.updateMainQuery)
+                self.pet_editing_window.show()
 
     def populateAuraSelector(self):
         spell_current = self.spell_select.model().index(self.spell_select.currentIndex(),1).data()
@@ -1058,7 +1059,7 @@ class PetEditing(QDialog):
 
     def initializeUI(self):
         self.setMinimumWidth(700)
-        self.setFixedHeight(200)
+        self.setMinimumHeight(250)
         self.setWindowTitle(Path(self.parent().file_name).name)
         self.setUpWindow()
     
@@ -1070,6 +1071,15 @@ class PetEditing(QDialog):
         self.all_pets_cb.toggled.connect(self.toggleUnassigned)
         self.show_guid_cb = QCheckBox("Separate pets by GUID", self)
         self.show_guid_cb.toggled.connect(self.toggleAllGUID)
+        self.encounter_select_cb = QCheckBox("Separate pets by encounter", self)
+        self.encounter_select_cb.toggled.connect(self.toggleEncounter)
+        self.encounter_select = QComboBox()
+        encounter_query = QSqlQuery("SELECT enemy, timeStart, timeEnd, isKill FROM encounters ORDER BY timeStart")
+        encounter_query.exec()
+        while encounter_query.next():
+            self.encounter_select.addItem(f"{encounter_query.value(0)} ({'kill' if encounter_query.value(3) else 'wipe'}) - {encounter_query.value(1)} | {encounter_query.value(2)}", encounter_query.value(1))
+        self.encounter_select.hide()
+        self.encounter_select.textActivated.connect(self.updateLists)
         self.pet_label = QLabel("Pet")
         self.pet_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.pet_selector = QComboBox()
@@ -1099,65 +1109,61 @@ class PetEditing(QDialog):
         self.ok_button.clicked.connect(self.close)
         self.main_vbox.addWidget(self.all_pets_cb)
         self.main_vbox.addWidget(self.show_guid_cb)
+        self.main_vbox.addWidget(self.encounter_select_cb)
+        self.main_vbox.addWidget(self.encounter_select)
+        self.main_vbox.addStretch(1)
         self.main_vbox.addLayout(self.main_grid)
+        self.main_vbox.addStretch(1)
         self.main_vbox.addWidget(self.link_button)
         self.main_vbox.addWidget(self.ok_button)
         self.setLayout(self.main_vbox)
         self.all_pets_cb.toggle()
         self.show_guid_cb.toggle()
         self.updateOwnersList()
-        self.pet_selector.textActivated.connect(self.currentOwner)
+        self.pet_selector.currentTextChanged.connect(self.currentOwner)
         
     def updateOwnersList(self):
-        q = QSqlQuery()
-        q.exec("SELECT unitName, unitGUID FROM actors WHERE isPlayer = 1 ORDER BY unitName")
         self.owner_selector.clear()
         self.owner_selector.addItem('-', (None, None))
+        q = QSqlQuery()
+        q.prepare(f"SELECT a.unitName, a.unitGUID, spec FROM actors a LEFT JOIN specs s ON a.unitGUID = s.unitGUID WHERE isPlayer = 1 {'AND encounterTime = :timeStart AND (timestamp IS NULL or timestamp = :timeStart)' if self.encounter_select_cb.isChecked() else ''} GROUP BY a.unitName ORDER BY a.unitName")
+        q.bindValue(':timeStart', self.encounter_select.currentData())
+        q.exec()
         while q.next():
-            self.owner_selector.addItem(q.value(0), (q.value(0), q.value(1)))
+            self.owner_selector.addItem(QIcon(QPixmap(PATH_HERO(q.value(2)))), q.value(0), (q.value(0), q.value(1)))
 
     def clearOwner(self):
         self.owner_selector.setCurrentIndex(0)
 
     def currentOwner(self):
-        q = QSqlQuery()
-        if self.allGUID:
-            q.prepare("SELECT ownerName FROM pets WHERE petName = :petName AND petGUID = :petGUID")
+        if self.pet_selector.currentData():
+            q = QSqlQuery()
+            q.prepare(f"SELECT COALESCE(ownerName, 'Unknown') AS name, COUNT(COALESCE(ownerName, 'Unknown')) FROM actors a LEFT JOIN pets p ON a.unitGUID = p.petGUID WHERE isPet = 1 AND {'a.unitGUID = :petGUID' if self.allGUID else 'a.unitName = :petName'} {'AND encounterTime = :timeStart' if self.encounter_select_cb.isChecked() else ''} {'AND ownerName IS NULL' if self.unassignedOnly else ''} GROUP BY name ORDER BY name")
             q.bindValue(':petGUID', self.pet_selector.currentData()[1])
             q.bindValue(':petName', self.pet_selector.currentData()[0])
-            q.exec()
-            if q.next():
-                self.current_owner.setText(q.value(0))
-            else:
-                self.current_owner.setText('-')
-        else:
-            q.prepare("SELECT a.unitName, p.ownerName FROM actors a LEFT JOIN pets p ON a.unitGUID = p.petGUID WHERE a.isPet = 1 AND a.unitName = :petName")
-            q.bindValue(':petName', self.pet_selector.currentData()[0])
+            q.bindValue(':timeStart', self.encounter_select.currentData())
             q.exec()
             owners = {}
             while q.next():
-                owner = q.value(1) or 'Unknown'
-                if owner in owners:
-                    owners[owner] += 1
+                owners[q.value(0)] = q.value(1)
+            if len(owners) == 1:
+                name = list(owners.keys())[0]
+                if name == 'Unknown':
+                    self.current_owner.setText('-' if self.allGUID else f"{name} ({owners[name]})")
                 else:
-                    owners[owner] = 1
-            self.current_owner.setText(', '.join(f"{owner} ({owners[owner]})" for owner in owners))
+                    self.current_owner.setText(f"{name}{f' ({str(owners[name])})' if not self.allGUID else ''}")
+            else:
+                self.current_owner.setText(', '.join(f"{owner} ({owners[owner]})" for owner in owners))
 
     def updatePetList(self):
-        q = QSqlQuery()
-        if self.allGUID:
-            if self.unassignedOnly:
-                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 AND pets.ownerGUID IS NULL ORDER BY unitName, unitGUID")
-            else:
-                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 ORDER BY unitName, unitGUID")
-        else:
-            if self.unassignedOnly:
-                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 AND pets.ownerGUID IS NULL GROUP BY unitName ORDER BY unitName")
-            else:
-                q.exec("SELECT unitName, unitGUID FROM actors LEFT JOIN pets ON actors.unitGUID = pets.petGUID WHERE actors.isPet = 1 GROUP BY unitName ORDER BY unitName")
         self.pet_selector.clear()
+        q = QSqlQuery()
+        q.prepare(f"SELECT unitName, unitGUID FROM actors a LEFT JOIN pets p ON a.unitGUID = p.petGUID WHERE isPet = 1 {'AND ownerGUID is NULL' if self.unassignedOnly else ''} {'AND encounterTime = :startTime ' if self.encounter_select_cb.isChecked() else ''} {'GROUP BY unitGUID' if self.allGUID else 'GROUP BY unitName'} ORDER BY unitName, unitGUID")
+        q.bindValue(':startTime', self.encounter_select.currentData())
+        q.exec()
         while q.next():
             self.pet_selector.addItem(f"{q.value(0)}{f' ({q.value(1)})' if self.allGUID else ''}", (q.value(0), q.value(1)))
+        self.currentOwner()
     
     def toggleAllGUID(self, checked):
         self.allGUID = checked
@@ -1166,6 +1172,13 @@ class PetEditing(QDialog):
     def toggleUnassigned(self, checked):
         self.unassignedOnly = checked
         self.updatePetList()
+
+    def toggleEncounter(self, checked):
+        if checked:
+            self.encounter_select.show()
+        else:
+            self.encounter_select.hide()
+        self.updateLists()
 
     def updateOwnership(self):
         answer = QMessageBox.question(self, "Confirm?", "Confirm changes?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
@@ -1188,8 +1201,9 @@ class PetEditing(QDialog):
             else:
                 if name:
                     s = QSqlQuery()
-                    s.prepare("SELECT unitName, unitGUID FROM actors WHERE isPet = 1 AND unitName = :petName")
+                    s.prepare(f"SELECT unitName, unitGUID FROM actors a LEFT JOIN pets p ON a.unitGUID = p.petGUID WHERE isPet = 1 AND unitName = :petName {'AND ownerName IS NULL' if self.unassignedOnly else ''} {'AND encounterTime = :timeStart' if self.encounter_select_cb.isChecked() else ''}")
                     s.bindValue(':petName', self.pet_selector.currentData()[0])
+                    s.bindValue(':timeStart', self.encounter_select.currentData())
                     s.exec()
                     q.prepare("INSERT OR REPLACE INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName)")
                     while s.next():
@@ -1204,7 +1218,11 @@ class PetEditing(QDialog):
                     q.exec()
             DB.commit()
             QMessageBox.information(self, "Done", "Done", QMessageBox.StandardButton.Ok)
-            self.currentOwner()
+            self.updatePetList()
+
+    def updateLists(self):
+        self.updateOwnersList()
+        self.updatePetList()
 
 if __name__ == '__main__':
     app = QApplication(sys.argv)

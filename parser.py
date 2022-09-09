@@ -1,3 +1,4 @@
+from asyncio import QueueEmpty
 from math import perm
 import sys, os, platform
 import re
@@ -271,37 +272,71 @@ class parse:
         query.exec('DROP TABLE actors')
         with open('queries/actors.sql', 'r') as f:
             query.exec(f.read())
-        #Insert raid members
-        query.exec("INSERT INTO actors (unitGUID, unitName, isPlayer) SELECT sourceGUID, sourceName, 1 FROM events WHERE sourceGUID LIKE '0x__0%' AND (sourceFlags LIKE '%511' OR sourceFlags LIKE '%512' OR sourceFlags LIKE '%514') GROUP BY sourceGUID")
-        query.exec("SELECT unitGUID, unitName FROM actors WHERE isPlayer = 1")
-        player_list = {}
-        while (query.next()):
-            player_list[query.value(0)] = query.value(1)
-        #Insert permanent pets
-        query.exec("INSERT INTO actors (unitGUID, unitName, isPet) SELECT sourceGUID, sourceName, 1 FROM events WHERE sourceGUID LIKE '0x__4%' GROUP BY sourceGUID")
-        #Insert summoned pets
-        query.exec("INSERT INTO actors (unitGUID, unitName, isPet) SELECT sourceGUID, sourceName, 1 FROM events WHERE sourceGUID LIKE '0x__3%' AND (sourceFlags LIKE '%1111' OR sourceFlags LIKE '%1112' OR sourceFlags LIKE '%1114') GROUP BY sourceGUID")
-        query.exec("SELECT unitGUID, unitName FROM actors WHERE isPet = 1")
-        pet_list = {}
-        while (query.next()):
-            pet_list[query.value(0)] = query.value(1)
-        #Insert NPCs
-        query.exec("SELECT sourceGUID, sourceName, 1 FROM events WHERE sourceGUID LIKE '0x__3%' AND sourceFlags LIKE '%a48' GROUP BY sourceGUID")
-        NPC_list = {}
-        add_npc = QSqlQuery()
-        add_npc.prepare("INSERT INTO actors (unitGUID, unitName, isNPC) VALUES (:unitGUID, :unitName, 1)")
-        pet_npc = QSqlQuery()
-        pet_npc.prepare("UPDATE actors SET isNPC = 1 WHERE unitGUID = :unitGUID")
-        while (query.next()):
-            NPC_list[query.value(0)] = query.value(1)
-            if query.value(0) not in player_list:
-                if query.value(0) in pet_list:
-                    pet_npc.bindValue(":unitGUID", query.value(0))
-                    pet_npc.exec()
-                else:
-                    add_npc.bindValue(':unitGUID', query.value(0))
-                    add_npc.bindValue(':unitName', query.value(1))
-                    add_npc.exec()
+        encounter = QSqlQuery("SELECT timeStart, timeEnd FROM encounters")
+        encounter.exec()
+        players = QSqlQuery()
+        players.prepare("INSERT INTO actors (unitGUID, unitName, isPlayer, encounterTime) SELECT sourceGUID, sourceName, 1, :timeStart FROM events WHERE sourceGUID LIKE '0x__0%' AND (sourceFlags LIKE '%511' OR sourceFlags LIKE '%512' OR sourceFlags LIKE '%514') AND timestamp >= :timeStart AND timestamp <= :timeEnd GROUP BY sourceGUID")
+        pets = QSqlQuery()
+        pets.prepare("INSERT INTO actors (unitGUID, unitName, isPet, encounterTime) SELECT sourceGUID, sourceName, 1, :timeStart FROM events WHERE (sourceGUID LIKE '0x__4%' OR (sourceGUID LIKE '0x__3%' AND (sourceFlags LIKE '%1111' OR sourceFlags LIKE '%1112' OR sourceFlags LIKE '%1114'))) AND timestamp >= :timeStart AND timestamp <= :timeEnd GROUP BY sourceGUID")
+        npcs1, npcs2 = QSqlQuery(), QSqlQuery()
+        npcs1.prepare("SELECT sourceGUID, sourceName FROM events WHERE sourceGUID LIKE '0x__3%' AND sourceFlags LIKE '%a48' AND timestamp >= :timeStart AND timestamp <= :timeEnd GROUP BY sourceGUID")
+        npcs2.prepare("SELECT targetGUID, targetName FROM events WHERE targetGUID LIKE '0x__3%' AND targetFlags LIKE '%a48' AND timestamp >= :timeStart AND timestamp <= :timeEnd GROUP BY targetGUID")
+        while encounter.next():
+            t0, t1 = encounter.value(0), encounter.value(1)
+            #Insert raid members
+            players.bindValue(':timeStart', t0)
+            players.bindValue(':timeEnd', t1)
+            players.exec()
+            query.prepare("SELECT unitGUID, unitName FROM actors WHERE isPlayer = 1 AND encounterTime = :timeStart")
+            query.bindValue(':timeStart', t0)
+            query.exec()
+            player_list = {}
+            while query.next():
+                player_list[query.value(0)] = query.value(1)
+            #Insert permanent pets
+            pets.bindValue(':timeStart', t0)
+            pets.bindValue(':timeEnd', t1)
+            pets.exec()
+            query.prepare("SELECT unitGUID, unitName FROM actors WHERE isPet = 1 AND encounterTime = :timeStart")
+            query.bindValue(':timeStart', t0)
+            query.exec()
+            pet_list = {}
+            while query.next():
+                pet_list[query.value(0)] = query.value(1)
+            #Insert NPCs
+            NPC_list = {}
+            add_npc = QSqlQuery()
+            add_npc.prepare("INSERT INTO actors (unitGUID, unitName, isNPC, encounterTime) VALUES (:unitGUID, :unitName, 1, :timeStart) ON CONFLICT DO NOTHING")
+            add_npc.bindValue(':timeStart', t0)
+            pet_npc = QSqlQuery()
+            pet_npc.prepare("UPDATE actors SET isNPC = 1 WHERE unitGUID = :unitGUID AND encounterTime = :timeStart")
+            pet_npc.bindValue(':timeStart', t0)
+            npcs1.bindValue(':timeStart', t0)
+            npcs1.bindValue(':timeEnd', t1)
+            npcs1.exec()
+            while npcs1.next():
+                if npcs1.value(0) not in player_list:
+                    NPC_list[npcs1.value(0)] = npcs1.value(1)
+                    if npcs1.value(0) in pet_list:
+                        pet_npc.bindValue(":unitGUID", npcs1.value(0))
+                        pet_npc.exec()
+                    else:
+                        add_npc.bindValue(':unitGUID', npcs1.value(0))
+                        add_npc.bindValue(':unitName', npcs1.value(1))
+                        add_npc.exec()
+            npcs2.bindValue(':timeStart', t0)
+            npcs2.bindValue(':timeEnd', t1)
+            npcs2.exec()
+            while npcs2.next():
+                if npcs2.value(0) not in player_list and npcs2.value(0) not in NPC_list:
+                    NPC_list[npcs2.value(0)] = npcs2.value(1)
+                    if npcs2.value(0) in pet_list:
+                        pet_npc.bindValue(":unitGUID", npcs2.value(0))
+                        pet_npc.exec()
+                    else:
+                        add_npc.bindValue(':unitGUID', npcs2.value(0))
+                        add_npc.bindValue(':unitName', npcs2.value(1))
+                        add_npc.exec()
 
     def populateEncounters(self):
         query = QSqlQuery()
