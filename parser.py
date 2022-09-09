@@ -415,8 +415,6 @@ class parse:
 
         tq = QSqlQuery()
         tq.exec('SELECT ownerName, petName FROM pets GROUP BY ownerName, petName')
-        while (tq.next()):
-            print(tq.value(0), tq.value(1))
 
         #Snake trap
         t = QSqlQuery('SELECT timeStart, timeEnd from ENCOUNTERS ORDER BY timeStart')
