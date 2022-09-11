@@ -61,4 +61,4 @@ AND (
         specs.timestamp = :startTime
     OR  specs.timestamp IS NULL
 )
-ORDER BY id DESC
+ORDER BY e.timestamp DESC, sourceName, id DESC
