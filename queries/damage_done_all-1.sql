@@ -30,6 +30,7 @@ WITH calc AS (
                     AND isNPC = 1
                 )
             )
+            AND encounterTime = :startTime
             AND targetName = :targetName
             AND (
                     eventName LIKE '%DAMAGE'

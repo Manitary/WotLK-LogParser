@@ -35,6 +35,7 @@ WITH calc AS (
                     AND isNPC = 1
                 )
             )
+            AND encounterTime = :startTime
             AND eventName LIKE '%HEAL'
             GROUP BY sourceGUID
         ) s

@@ -29,3 +29,4 @@ AND (
         AND actors.isNPC = 1
     )
 )
+AND encounterTime = :startTime

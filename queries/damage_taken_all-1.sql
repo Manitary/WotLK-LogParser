@@ -37,6 +37,7 @@ WITH calc AS (
                     AND isNPC = 1
                 )
             )
+            AND encounterTime = :startTime
             AND (
                     sourceName = :sourceName
                 OR  ownerName = :sourceName
