@@ -1,0 +1,5 @@
+CREATE TABLE spell_absorb (
+    spellID MEDIUMINT UNSIGNED PRIMARY KEY UNIQUE NOT NULL,
+    schoolFilter TINYINT UNSIGNED,
+    priority TINYINT UNSIGNED
+)
