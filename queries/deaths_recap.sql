@@ -56,6 +56,7 @@ AND (
     )
 )
 AND eventName NOT LIKE '%ENERGIZE'
+AND eventName NOT LIKE '%CAST%'
 AND (
         specs.timestamp = :startTime
     OR  specs.timestamp IS NULL
