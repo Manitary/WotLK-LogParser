@@ -5,7 +5,7 @@ __pycache__/
 
 # Huge files and/or currently unused files
 backups/
-data/
+data/*
 !data/spell_data.db
 logs/*.txt
 parses/
