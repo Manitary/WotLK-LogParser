@@ -1,4 +1,5 @@
 from asyncio import QueueEmpty
+from hashlib import new
 from math import perm
 import sys, os, platform
 import re
@@ -39,6 +40,7 @@ class parse:
             self.assignPets()
             self.populateAuras()
             self.assignSpecs()
+            self.assignAbsorbs()
             self.testQueries()
         self.db.close()
     
@@ -483,16 +485,16 @@ class parse:
         q.bindValue(':path', SPELL_DATA_PATH)
         q.exec()
         auras = QSqlQuery()
-        auras.exec("SELECT DISTINCT sourceGUID, targetGUID, spellID, spellName, auraType, spellSchool FROM events WHERE eventName LIKE 'SPELL_AURA_%'")
+        auras.exec("SELECT DISTINCT sourceGUID, sourceName, targetGUID, targetName, spellID, spellName, auraType, spellSchool FROM events WHERE eventName LIKE 'SPELL_AURA_%'")
         find = QSqlQuery()
         find.prepare("SELECT eventName, timestamp FROM events WHERE sourceGUID = :sourceGUID AND targetGUID = :targetGUID AND spellID = :spellID AND auraType = :auraType AND eventName LIKE 'SPELL_AURA_%' ORDER BY timestamp")
         duration = QSqlQuery()
         duration.prepare("SELECT duration FROM spell_db.spell_data WHERE spellID = :spellID")
         new_aura = QSqlQuery()
-        new_aura.prepare("INSERT INTO auras (spellName, spellID, spellSchool, sourceGUID, targetGUID, auraType, timeStart, timeEnd, eventType) VALUES (:spellName, :spellID, :spellSchool, :sourceGUID, :targetGUID, :auraType, :timeStart, :timeEnd, :eventType)")
+        new_aura.prepare("INSERT INTO auras (spellName, spellID, spellSchool, sourceGUID, sourceName, targetGUID, targetName, auraType, timeStart, timeEnd, eventType) VALUES (:spellName, :spellID, :spellSchool, :sourceGUID, :sourceName, :targetGUID, :targetName, :auraType, :timeStart, :timeEnd, :eventType)")
         try:
             while auras.next():
-                sourceGUID, targetGUID, spellID, spellName, auraType, spellSchool = auras.value(0), auras.value(1), auras.value(2), auras.value(3), auras.value(4), auras.value(5)
+                sourceGUID, sourceName, targetGUID, targetName, spellID, spellName, auraType, spellSchool = auras.value(0), auras.value(1), auras.value(2), auras.value(3), auras.value(4), auras.value(5), auras.value(6), auras.value(7)
                 print(f"Current batch: {spellName} ({spellID}) - {sourceGUID} -> {targetGUID} - ({spellSchool}, {auraType})")
                 duration.bindValue(':spellID', spellID)
                 duration.exec()
@@ -565,7 +567,9 @@ class parse:
                 new_aura.bindValue(':spellName', spellName)
                 new_aura.bindValue(':spellID', spellID)
                 new_aura.bindValue(':sourceGUID', sourceGUID)
+                new_aura.bindValue(':sourceName', sourceName)
                 new_aura.bindValue(':targetGUID', targetGUID)
+                new_aura.bindValue(':targetName', targetName)
                 new_aura.bindValue(':auraType', auraType)
                 new_aura.bindValue(':spellSchool', spellSchool)
                 for x in data:
@@ -576,6 +580,37 @@ class parse:
         except:
             print(f"Current batch: {spellName} - {sourceGUID} -> {targetGUID}")
             traceback.print_exc()
+
+    def assignAbsorbs(self):
+        q = QSqlQuery()
+        q.prepare("ATTACH DATABASE :path AS spell_db")
+        q.bindValue(':path', SPELL_DATA_PATH)
+        q.exec()
+
+        QSqlQuery('''
+            UPDATE events SET
+            absorbedByUnitGUID = x.absorbedByUnitGUID
+            , absorbedByUnitName = x.absorbedByUnitName
+            , absorbedBySpellID = x.absorbedBySpellID
+            , absorbedBySpellName = x.absorbedBySpellName
+            , absorbedBySpellSchool = x.absorbedBySpellSchool
+            FROM (
+                SELECT DISTINCT
+                    e.id AS id
+                    , FIRST_VALUE(a.sourceName) OVER (PARTITION BY e.id ORDER BY s.priority, a.timeStart) AS absorbedByUnitName
+                    , FIRST_VALUE(a.sourceGUID) OVER (PARTITION BY e.id ORDER BY s.priority, a.timeStart) AS absorbedByUnitGUID
+                    , FIRST_VALUE(a.spellID) OVER (PARTITION BY e.id ORDER BY s.priority, a.timeStart) AS absorbedBySpellID
+                    , FIRST_VALUE(a.spellName) OVER (PARTITION BY e.id ORDER BY s.priority, a.timeStart) AS absorbedBySpellName
+                    , FIRST_VALUE(a.spellSchool) OVER (PARTITION BY e.id ORDER BY s.priority, a.timeStart) AS absorbedBySpellSchool
+                FROM events e
+                JOIN auras a ON (e.timestamp >= a.timeStart AND e.timestamp <= a.timeEnd AND e.targetGUID = a.targetGUID)
+                JOIN spell_db.spell_absorb s ON (a.spellID = s.spellID AND s.schoolFilter & e.spellSchool > 0)
+                WHERE absorbed > 0
+            ) x
+            WHERE events.id = x.id
+        ''').exec()
+
+        QSqlQuery("UPDATE events SET absorbedByUnitName = 'Unknown' WHERE absorbed > 0 AND absorbedByUnitName IS NULL").exec()
 
 if __name__ == "__main__":
     parse('C:\\Users\\Manitary\\WotLK-LogParser\\logs\\WoWCombatLog.txt')

@@ -8,7 +8,7 @@ CREATE TABLE events (
     targetGUID VARBINARY,
     targetName VARCHAR(50),
     targetFlags VARBINARY,
-    spellID MEDIUMINT,
+    spellID MEDIUMINT UNSIGNED,
     environmentalType VARCHAR(8),
     spellName VARCHAR(30),
     spellSchool TINYINT UNSIGNED,
@@ -31,5 +31,10 @@ CREATE TABLE events (
     extraSchool TINYINT UNSIGNED,
     auraType VARCHAR(6),
     itemID SMALLINT UNSIGNED,
-    itemName VARCHAR(50)
+    itemName VARCHAR(50),
+    absorbedByUnitGUID VARBINARY,
+    absorbedByUnitName VARCHAR(50),
+    absorbedBySpellID MEDIUMINT UNSIGNED,
+    absorbedBySpellName VARCHAR(30),
+    absorbedBySpellSchool TINYINT UNSIGNED
 )
