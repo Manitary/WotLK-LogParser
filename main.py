@@ -23,10 +23,11 @@ DAMAGEDONE = "Damage Done"
 DAMAGETAKEN = "Damage Taken"
 HEALINGDONE = "Healing Done"
 HEALINGTAKEN = "Healing Received"
+ABSORBDONE = "Absorb Done"
 DEATHS = "Deaths"
 BUFFS = "Buffs"
 DEBUFFS = "Debuffs"
-METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, DEATHS, BUFFS, DEBUFFS]
+METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, ABSORBDONE, DEATHS, BUFFS, DEBUFFS]
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
 EVERYONE = True
 ICON = 'icon'
@@ -76,6 +77,18 @@ COLUMNS = {
             -1: {TYPE: SPELL, BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
             0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
             2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 11, HIDE: 11},
+        },
+    },
+    ABSORBDONE: {
+        EVERYONE: {
+            -1: {TYPE: HERO, BAR: 2, HERO: 5, HIDE: 5},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
+        },
+        not EVERYONE: {
+            -1: {TYPE: SPELL, BAR: 2, ICON: 5, SCHOOL: 6, HIDE: 5},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
         },
     },
 }
@@ -288,6 +301,8 @@ class MainWindow(QMainWindow):
             self.queryDamage()
         elif self.meter in (HEALINGDONE, HEALINGTAKEN):
             self.queryHealing()
+        elif self.meter in (ABSORBDONE):
+            self.queryAbsorb()
         elif self.meter == DEATHS:
             self.queryDeaths()
         elif self.meter in (BUFFS, DEBUFFS):
@@ -336,6 +351,23 @@ class MainWindow(QMainWindow):
         display_query.bindValue(":startTime", self.startTime)
         display_query.bindValue(":endTime", self.endTime)
         display_query.exec()
+        self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
+        self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
+        for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
+            self.table.hideColumn(i)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
+        self.table.horizontalHeader().setSectionResizeMode(2, QHeaderView.ResizeMode.Stretch)
+    
+    def queryAbsorb(self):
+        display_query = QSqlQuery()
+        with open(getPath(self.meter, self.everyone, self.everyoneTarget), 'r') as f:
+            display_query.prepare(f.read())
+        display_query.bindValue(":affiliation", self.source_affiliation)
+        display_query.bindValue(":targetName", self.target_select.currentText())
+        display_query.bindValue(":sourceName", self.source_select.currentText())
+        display_query.bindValue(":startTime", self.startTime)
+        display_query.bindValue(":endTime", self.endTime)
+        print(display_query.exec())
         self.table.setItemDelegateForColumn(2, DELEGATES[self.meter][self.everyone])
         self.table.setModel(meterSqlTableModel(display_query, self.meter, self.everyone))
         for i in range(COLUMNS[self.meter][self.everyone][-1][HIDE], self.table.horizontalHeader().count()):
@@ -606,13 +638,13 @@ class MainWindow(QMainWindow):
     def updateTargetAffiliation(self):
         if self.meter in (DAMAGEDONE, DAMAGETAKEN, DEBUFFS, DEATHS):
             self.target_affiliation = 1 - self.source_affiliation
-        elif self.meter in (HEALINGDONE, HEALINGTAKEN, BUFFS):
+        elif self.meter in (HEALINGDONE, HEALINGTAKEN, BUFFS, ABSORBDONE):
             self.target_affiliation = self.source_affiliation
         else:
             self.target_affiliation = 0
 
     def tableClicked(self, item):
-        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN, ABSORBDONE):
             if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
                 self.source_select.setCurrentIndex(new_source)
         elif self.meter == DEATHS:
@@ -1018,9 +1050,13 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':spellID', int(index.siblingAtColumn(10).data() or '0'))
                 display_query.bindValue(':eventName', index.siblingAtColumn(13).data())
                 display_query.bindValue(':ownerName', index.siblingAtColumn(12).data())
+            elif meter == ABSORBDONE:
+                display_query.bindValue(':sourceName', index.siblingAtColumn(6 if everyone else 8).data())
+                display_query.bindValue(':targetName', targetName)
+                display_query.bindValue(':spellID', int(index.siblingAtColumn(7).data() or '0'))
             display_query.bindValue(':startTime', self.startTime)
             display_query.bindValue(':endTime', self.endTime)
-            print(display_query.exec())
+            display_query.exec()
             self.tooltip_table.setItemDelegateForColumn(COLUMNS[meter][everyone][index.column()][BAR], meterDelegate(meter, everyone, index.column()))
             self.tooltip_table.setModel(meterSqlTableModel(display_query, meter, everyone, index.column()))
             self.tooltip_table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.ResizeToContents)
@@ -1034,7 +1070,7 @@ class tooltipTable(QTableView):
             self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
 
     def showTooltip(self, coords):
-        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, ABSORBDONE):
             self.tooltip.move(self.viewport().mapToGlobal(coords + QPoint(10, 20)))
             self.tooltip.show()
         else:
