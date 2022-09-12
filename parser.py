@@ -1,6 +1,3 @@
-from asyncio import QueueEmpty
-from hashlib import new
-from math import perm
 import sys, os, platform
 import re
 from PyQt6.QtSql import QSqlDatabase, QSqlQuery
