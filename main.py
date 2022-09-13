@@ -24,10 +24,11 @@ DAMAGETAKEN = "Damage Taken"
 HEALINGDONE = "Healing Done"
 HEALINGTAKEN = "Healing Received"
 ABSORBDONE = "Absorb Done"
+HEALINGABSORBDONE = "Healing and Absorb Done"
 DEATHS = "Deaths"
 BUFFS = "Buffs"
 DEBUFFS = "Debuffs"
-METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, ABSORBDONE, DEATHS, BUFFS, DEBUFFS]
+METERS = [DAMAGEDONE, DAMAGETAKEN, HEALINGABSORBDONE, DEATHS, BUFFS, DEBUFFS, HEALINGDONE, ABSORBDONE]
 SPELL_DATA_PATH = os.path.abspath('data/spell_data.db')
 EVERYONE = True
 ICON = 'icon'
@@ -89,6 +90,18 @@ COLUMNS = {
             -1: {TYPE: SPELL, BAR: 2, ICON: 5, SCHOOL: 6, HIDE: 5},
             0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
             2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
+        },
+    },
+    HEALINGABSORBDONE : {
+        EVERYONE: {
+            -1: {TYPE: HERO, BAR: 2, HERO: 7, HIDE: 7},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL, BAR: 2, ICON: 4, SCHOOL: 5, HIDE: 4},
+        },
+        not EVERYONE: {
+            -1: {TYPE: SPELL, BAR: 2, ICON: 8, SCHOOL: 9, HIDE: 8},
+            0: {TYPE: HERO, BAR: 2, HERO: 4, HIDE: 4},
+            2: {TYPE: SPELL_INFO, BAR: 2, SCHOOL: 11, HIDE: 11},
         },
     },
 }
@@ -299,7 +312,7 @@ class MainWindow(QMainWindow):
         self.table.setModel(self.model)
         if self.meter in (DAMAGEDONE, DAMAGETAKEN):
             self.queryDamage()
-        elif self.meter in (HEALINGDONE, HEALINGTAKEN):
+        elif self.meter in (HEALINGDONE, HEALINGTAKEN, HEALINGABSORBDONE):
             self.queryHealing()
         elif self.meter in (ABSORBDONE):
             self.queryAbsorb()
@@ -638,13 +651,13 @@ class MainWindow(QMainWindow):
     def updateTargetAffiliation(self):
         if self.meter in (DAMAGEDONE, DAMAGETAKEN, DEBUFFS, DEATHS):
             self.target_affiliation = 1 - self.source_affiliation
-        elif self.meter in (HEALINGDONE, HEALINGTAKEN, BUFFS, ABSORBDONE):
+        elif self.meter in (HEALINGDONE, HEALINGTAKEN, BUFFS, ABSORBDONE, HEALINGABSORBDONE):
             self.target_affiliation = self.source_affiliation
         else:
             self.target_affiliation = 0
 
     def tableClicked(self, item):
-        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN, ABSORBDONE):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, HEALINGTAKEN, ABSORBDONE, HEALINGABSORBDONE):
             if (new_source := self.source_select.findText(item.siblingAtColumn(0).data())) != -1:
                 self.source_select.setCurrentIndex(new_source)
         elif self.meter == DEATHS:
@@ -1054,6 +1067,12 @@ class tooltipTable(QTableView):
                 display_query.bindValue(':sourceName', index.siblingAtColumn(6 if everyone else 8).data())
                 display_query.bindValue(':targetName', targetName)
                 display_query.bindValue(':spellID', int(index.siblingAtColumn(7).data() or '0'))
+            elif meter == HEALINGABSORBDONE:
+                display_query.bindValue(':targetName', targetName)
+                display_query.bindValue(':sourceName', index.siblingAtColumn(8 if everyone else 11).data())
+                display_query.bindValue(':spellID', int(index.siblingAtColumn(10).data() or '0'))
+                display_query.bindValue(':eventName', index.siblingAtColumn(13).data())
+                display_query.bindValue(':ownerName', index.siblingAtColumn(12).data())
             display_query.bindValue(':startTime', self.startTime)
             display_query.bindValue(':endTime', self.endTime)
             display_query.exec()
@@ -1070,7 +1089,7 @@ class tooltipTable(QTableView):
             self.container.setFixedSize(self.tooltip_table.horizontalHeader().length() + 19, self.tooltip_table.verticalHeader().length() + 43)
 
     def showTooltip(self, coords):
-        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, ABSORBDONE):
+        if self.meter in (DAMAGEDONE, DAMAGETAKEN, HEALINGDONE, ABSORBDONE, HEALINGABSORBDONE):
             self.tooltip.move(self.viewport().mapToGlobal(coords + QPoint(10, 20)))
             self.tooltip.show()
         else:
