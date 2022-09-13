@@ -1224,7 +1224,7 @@ class PetEditing(QDialog):
             name, guid = self.owner_selector.currentData()
             if self.allGUID:
                 if name:
-                    q.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName) ON DUPLICATE KEY UPDATE ownerGUID = :ownerGUID, ownerName = :ownerName")
+                    q.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName) ON CONFLICT(petGUID, petName) DO UPDATE SET ownerGUID = :ownerGUID, ownerName = :ownerName")
                     q.bindValue(':petName', self.pet_selector.currentData()[0])
                     q.bindValue(':petGUID', self.pet_selector.currentData()[1])
                     q.bindValue(':ownerName', name)
@@ -1241,7 +1241,7 @@ class PetEditing(QDialog):
                     s.bindValue(':petName', self.pet_selector.currentData()[0])
                     s.bindValue(':timeStart', self.encounter_select.currentData())
                     s.exec()
-                    q.prepare("INSERT OR REPLACE INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName)")
+                    q.prepare("INSERT INTO pets (petGUID, petName, ownerGUID, ownerName) VALUES (:petGUID, :petName, :ownerGUID, :ownerName) ON CONFLICT(petGUID, petName) DO UPDATE SET ownerGUID = :ownerGUID, ownerName = :ownerName")
                     while s.next():
                         q.bindValue(':petName', s.value(0))
                         q.bindValue(':petGUID', s.value(1))
