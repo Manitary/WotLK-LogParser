@@ -67,7 +67,7 @@ class parse:
             return True
 
     def createConnection(self):
-        self.db = QSqlDatabase.addDatabase("QSQLITE")
+        self.db = QSqlDatabase.database()
         self.db.setDatabaseName(f"parses/{self.parseFileName}.db")
         if not self.db.open():
             print("Unable to open data source file.")
