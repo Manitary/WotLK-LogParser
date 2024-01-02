@@ -67,6 +67,7 @@ class parse:
             return True
 
     def createConnection(self):
+        os.makedirs("parses", exist_ok=True)
         self.db = QSqlDatabase.database()
         self.db.setDatabaseName(f"parses/{self.parseFileName}.db")
         if not self.db.open():
